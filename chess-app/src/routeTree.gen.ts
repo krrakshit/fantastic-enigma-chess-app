@@ -14,7 +14,9 @@ import { Route as PixelDojoRouteImport } from './routes/pixel-dojo'
 import { Route as ParchmentRouteImport } from './routes/parchment'
 import { Route as ObsidianRouteImport } from './routes/obsidian'
 import { Route as NeonArenaRouteImport } from './routes/neon-arena'
+import { Route as GameRouteImport } from './routes/game'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as GameRoomIdRouteImport } from './routes/game.$roomId'
 
 const ZenGardenRoute = ZenGardenRouteImport.update({
   id: '/zen-garden',
@@ -41,66 +43,89 @@ const NeonArenaRoute = NeonArenaRouteImport.update({
   path: '/neon-arena',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GameRoute = GameRouteImport.update({
+  id: '/game',
+  path: '/game',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GameRoomIdRoute = GameRoomIdRouteImport.update({
+  id: '/$roomId',
+  path: '/$roomId',
+  getParentRoute: () => GameRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/game': typeof GameRouteWithChildren
   '/neon-arena': typeof NeonArenaRoute
   '/obsidian': typeof ObsidianRoute
   '/parchment': typeof ParchmentRoute
   '/pixel-dojo': typeof PixelDojoRoute
   '/zen-garden': typeof ZenGardenRoute
+  '/game/$roomId': typeof GameRoomIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/game': typeof GameRouteWithChildren
   '/neon-arena': typeof NeonArenaRoute
   '/obsidian': typeof ObsidianRoute
   '/parchment': typeof ParchmentRoute
   '/pixel-dojo': typeof PixelDojoRoute
   '/zen-garden': typeof ZenGardenRoute
+  '/game/$roomId': typeof GameRoomIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/game': typeof GameRouteWithChildren
   '/neon-arena': typeof NeonArenaRoute
   '/obsidian': typeof ObsidianRoute
   '/parchment': typeof ParchmentRoute
   '/pixel-dojo': typeof PixelDojoRoute
   '/zen-garden': typeof ZenGardenRoute
+  '/game/$roomId': typeof GameRoomIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/game'
     | '/neon-arena'
     | '/obsidian'
     | '/parchment'
     | '/pixel-dojo'
     | '/zen-garden'
+    | '/game/$roomId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/game'
     | '/neon-arena'
     | '/obsidian'
     | '/parchment'
     | '/pixel-dojo'
     | '/zen-garden'
+    | '/game/$roomId'
   id:
     | '__root__'
     | '/'
+    | '/game'
     | '/neon-arena'
     | '/obsidian'
     | '/parchment'
     | '/pixel-dojo'
     | '/zen-garden'
+    | '/game/$roomId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  GameRoute: typeof GameRouteWithChildren
   NeonArenaRoute: typeof NeonArenaRoute
   ObsidianRoute: typeof ObsidianRoute
   ParchmentRoute: typeof ParchmentRoute
@@ -145,6 +170,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NeonArenaRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/game': {
+      id: '/game'
+      path: '/game'
+      fullPath: '/game'
+      preLoaderRoute: typeof GameRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -152,11 +184,29 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/game/$roomId': {
+      id: '/game/$roomId'
+      path: '/$roomId'
+      fullPath: '/game/$roomId'
+      preLoaderRoute: typeof GameRoomIdRouteImport
+      parentRoute: typeof GameRoute
+    }
   }
 }
 
+interface GameRouteChildren {
+  GameRoomIdRoute: typeof GameRoomIdRoute
+}
+
+const GameRouteChildren: GameRouteChildren = {
+  GameRoomIdRoute: GameRoomIdRoute,
+}
+
+const GameRouteWithChildren = GameRoute._addFileChildren(GameRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  GameRoute: GameRouteWithChildren,
   NeonArenaRoute: NeonArenaRoute,
   ObsidianRoute: ObsidianRoute,
   ParchmentRoute: ParchmentRoute,

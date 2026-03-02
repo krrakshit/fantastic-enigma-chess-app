@@ -266,7 +266,7 @@ function PromotionDialog({
 
 // --- Main ChessBoard Component ---
 export interface ChessBoardProps {
-  game: ChessGameState;
+  game?: ChessGameState;
   theme?: Partial<BoardTheme>;
   showCoordinates?: boolean;
   flipped?: boolean;
@@ -286,6 +286,10 @@ export function ChessBoard({
     () => ({ ...DEFAULT_THEME, ...themeOverride }),
     [themeOverride],
   );
+
+  if(!game) {
+    return 
+  }
   const [selectedSquare, setSelectedSquare] = useState<Square | null>(null);
   const [legalTargets, setLegalTargets] = useState<Square[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);

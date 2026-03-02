@@ -1,4 +1,9 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+
+
+
+  
+
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -71,6 +76,39 @@ function HomePage() {
       >
         Chess Arena
       </h1>
+      <Link 
+        key={"/game"} 
+        to={"/game"}
+        style={{
+          textDecoration: "none",
+          marginBottom: 32,
+        }}
+      >
+        <button 
+          style={{
+            padding: "15px 50px",
+            fontSize: "1.2rem",
+            backgroundColor: "#C9A84C",
+            color: "#000",
+            border: "none",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "bold",
+            transition: "all 0.3s ease",
+            boxShadow: "0 8px 24px rgba(201, 168, 76, 0.3)",
+          }}
+          onMouseEnter={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#FFE89D";
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 12px 32px rgba(201, 168, 76, 0.5)";
+          }}
+          onMouseLeave={(e) => {
+            (e.currentTarget as HTMLButtonElement).style.backgroundColor = "#C9A84C";
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = "0 8px 24px rgba(201, 168, 76, 0.3)";
+          }}
+        >
+          🎮 Start Playing
+        </button>
+      </Link>
       <p
         style={{
           fontSize: "1.15rem",

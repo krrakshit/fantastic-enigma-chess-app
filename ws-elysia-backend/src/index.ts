@@ -41,6 +41,9 @@ const app = new Elysia()
     open(ws) {
       const clientId = Math.random().toString(36).substring(2, 11);
       console.log("Player connected:", clientId);
+      sendMessage(ws, "connected", {
+        status: "connected_to_server",
+      });
     },
     message(ws, data) {
       try {
@@ -79,7 +82,7 @@ const app = new Elysia()
             existingRoom.player2Socket = ws;
 
             console.log(
-              `Room ${existingRoom.roomId} matched: Player1=${existingRoom.player1Id}, Player2=${existingRoom.player2Id}`
+              `Room ${existingRoom.roomId} matched: Player1=${existingRoom.player1Id}, Player2=${existingRoom.player2Id}`,
             );
 
             // Send room details to player 2
@@ -109,5 +112,5 @@ const app = new Elysia()
   .listen(3000);
 
 console.log(
-  `🦊 WebSocket server is running at ${app.server?.hostname}:${app.server?.port}`
+  `🦊 WebSocket server is running at ${app.server?.hostname}:${app.server?.port}`,
 );

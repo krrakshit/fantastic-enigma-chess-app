@@ -130,6 +130,17 @@ const app = new Elysia()
               player2Id: existingRoom.player2Id,
             });
 
+            // Push game start to Redis
+            redisClient.lPush(
+              "chess",
+              JSON.stringify({
+                type: "start",
+                roomID: existingRoom.roomId,
+                player1Id: existingRoom.player1Id,
+                player2Id: existingRoom.player2Id,
+              }),
+            );
+
             console.log(`Match ready: ${existingRoom.roomId}`);
           }
         }
@@ -172,8 +183,14 @@ const app = new Elysia()
                 sendMessage(opponentSocket, "move", { move });
               }
 
-              // Push to Redis for main backend
-              redisClient.lPush("chess", JSON.stringify(move));
+              // Push to Redis for main backend with type
+              redisClient.lPush(
+                "chess",
+                JSON.stringify({
+                  type: "move",
+                  ...move,
+                }),
+              );
             } else {
               sendMessage(ws, "error", { message: "Invalid move" });
             }

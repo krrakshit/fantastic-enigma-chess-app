@@ -1,0 +1,36 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Game {
+  id        String   @id @default(cuid())
+  roomID    String   @unique
+  player1id String   @unique
+  player2id String   @unique
+  moves     Move[]   @relation("GameMoves")
+  createdAt DateTime @default(now())
+}
+
+model Move {
+  id        String   @id @default(cuid())
+  roomID    String
+  game      Game     @relation("GameMoves", fields: [roomID], references: [roomID], onDelete: Cascade)
+  playerID  String
+  piece     String
+  from      String
+  to        String
+  createdAt DateTime @default(now())
+
+  @@map("moves")
+}

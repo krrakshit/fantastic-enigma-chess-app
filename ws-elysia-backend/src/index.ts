@@ -1,11 +1,40 @@
 import { Elysia, t } from "elysia";
+import { createClient } from "redis";
+import { Chess } from "chess.js";
+
+const redisClient = createClient({ url: "redis://localhost:6379" });
+async function initializeRedis() {
+  try {
+    redisClient.on("error", (err: Error) => {
+      console.error("Redis Client Error:", err);
+    });
+
+    redisClient.on("connect", () => {
+      console.log("✅ Connected to Redis");
+    });
+
+    await redisClient.connect();
+  } catch (error) {
+    console.error("❌ Failed to connect to Redis:", error);
+  }
+}
+await initializeRedis();
 
 // --- Types ---
-type Type = "start" | "join";
+type Type = "start" | "join" | "move";
+
+type Move = {
+  roomID: string;
+  playerID: string;
+  piece: string;
+  from: string;
+  to: string;
+};
 
 type Message = {
   content: Type;
   uid: string;
+  move?: Move;
 };
 
 type Room = {
@@ -14,6 +43,8 @@ type Room = {
   player1Socket: any;
   player2Id?: string;
   player2Socket?: any;
+  chess: Chess;
+  moves: Move[];
 };
 
 // --- State ---
@@ -39,8 +70,7 @@ function sendMessage(ws: any, type: string, data: Record<string, any>) {
 const app = new Elysia()
   .ws("/ws", {
     open(ws) {
-      const clientId = Math.random().toString(36).substring(2, 11);
-      console.log("Player connected:", clientId);
+      console.log("Player connected:");
       sendMessage(ws, "connected", {
         status: "connected_to_server",
       });
@@ -65,6 +95,8 @@ const app = new Elysia()
               roomId,
               player1Id: message.uid,
               player1Socket: ws,
+              chess: new Chess(),
+              moves: [],
             };
             roomQueue.push(newRoom);
             activeRooms.set(roomId, newRoom);
@@ -99,6 +131,54 @@ const app = new Elysia()
             });
 
             console.log(`Match ready: ${existingRoom.roomId}`);
+          }
+        }
+
+        if (message.content === "move") {
+          const move = message.move!;
+          const room = activeRooms.get(move.roomID);
+          if (!room) {
+            sendMessage(ws, "error", { message: "Room not found" });
+            return;
+          }
+
+          const isPlayer1 = room.player1Id === move.playerID;
+          const isPlayer2 = room.player2Id === move.playerID;
+          if (!isPlayer1 && !isPlayer2) {
+            sendMessage(ws, "error", { message: "Player not in room" });
+            return;
+          }
+
+          const playerColor = isPlayer1 ? "w" : "b";
+          if (room.chess.turn() !== playerColor) {
+            sendMessage(ws, "error", { message: "Not your turn" });
+            return;
+          }
+
+          try {
+            const moveResult = room.chess.move({
+              from: move.from,
+              to: move.to,
+            });
+            if (moveResult) {
+              // Valid move
+              room.moves.push(move);
+
+              // Send to opponent
+              const opponentSocket = isPlayer1
+                ? room.player2Socket
+                : room.player1Socket;
+              if (opponentSocket) {
+                sendMessage(opponentSocket, "move", { move });
+              }
+
+              // Push to Redis for main backend
+              redisClient.lPush("chess", JSON.stringify(move));
+            } else {
+              sendMessage(ws, "error", { message: "Invalid move" });
+            }
+          } catch (error) {
+            sendMessage(ws, "error", { message: "Invalid move" });
           }
         }
       } catch (error) {

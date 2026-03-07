@@ -4,6 +4,7 @@ import { ChessBoard } from "../components/ChessBoard";
 import { useChessWebSocket } from "../lib/useChessWebSocket";
 import { PieceSVG } from "../lib/piece-svgs";
 import type { Move } from "chess.js";
+import { useWebSocket } from "../lib/websocket-context";
 
 export const Route = createFileRoute("/game/$roomId")({
   component: GameRoom,
@@ -138,6 +139,25 @@ function GameOverOverlay({
   turn: string;
   myColor: string | null;
 }) {
+  const { send } = useWebSocket();
+  const hasSentGameOver = useRef(false);
+
+  useEffect(() => {
+    if (status === "checkmate" && !hasSentGameOver.current) {
+      hasSentGameOver.current = true;
+      try {
+        const raw = localStorage.getItem("gameData");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          send({
+            content: "game_over",
+            move: { roomID: parsed.roomId }
+          } as any);
+        }
+      } catch (e) {}
+    }
+  }, [status, send]);
+
   const terminalStatuses = ["checkmate", "stalemate", "draw", "threefold", "insufficient"];
   if (!terminalStatuses.includes(status)) return null;
 

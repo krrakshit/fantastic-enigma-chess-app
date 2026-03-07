@@ -20,7 +20,7 @@ model Game {
   player2id String   @unique
   moves     Move[]   @relation("GameMoves")
   createdAt DateTime @default(now())
-  status    State    @default("start")
+  status    State    @default(start)
 }
 
 model Move {

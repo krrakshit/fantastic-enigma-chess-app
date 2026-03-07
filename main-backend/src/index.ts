@@ -62,6 +62,16 @@ async function processqueue() {
             },
           });
           console.log("Move stored in DB");
+        } else if (data.type === "game_over") {
+          console.log("Game end fo room id" + data.roomID ) ;
+          await prisma.game.update({
+            where : {
+             roomID : data.roomID
+            }, 
+            data : {
+              status : "finished",
+            }
+          })
         }
       }
     } catch (error) {

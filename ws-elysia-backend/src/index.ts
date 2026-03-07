@@ -21,7 +21,7 @@ async function initializeRedis() {
 // await initializeRedis();
 
 // --- Types ---
-type Type = "start" | "join" | "move";
+type Type = "start" | "join" | "move" | "game_over";
 
 type Move = {
   roomID: string;
@@ -197,6 +197,16 @@ const app = new Elysia()
           } catch (error) {
             sendMessage(ws, "error", { message: "Invalid move" });
           }
+        }
+
+        if (message.content === "game_over") {
+          redisClient.lPush(
+            "chess",
+            JSON.stringify({
+              type: "game_over",
+              roomID: message.move?.roomID,
+            }),
+          );
         }
       } catch (error) {
         console.error("Error parsing message:", error);

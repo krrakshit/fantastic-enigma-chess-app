@@ -272,6 +272,8 @@ export interface ChessBoardProps {
   flipped?: boolean;
   className?: string;
   style?: React.CSSProperties;
+  /** If true, no moves can be made (used in multiplayer when it's opponent's turn) */
+  disabled?: boolean;
 }
 
 export function ChessBoard({
@@ -281,6 +283,7 @@ export function ChessBoard({
   flipped = false,
   className,
   style,
+  disabled = false,
 }: ChessBoardProps) {
   const theme = useMemo(
     () => ({ ...DEFAULT_THEME, ...themeOverride }),
@@ -304,12 +307,13 @@ export function ChessBoard({
 
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
+      if (disabled) return;
       const sq = event.active.id as Square;
       setActiveId(sq);
       setSelectedSquare(sq);
       setLegalTargets(game.legalMoves(sq));
     },
-    [game],
+    [game, disabled],
   );
 
   const handleDragEnd = useCallback(

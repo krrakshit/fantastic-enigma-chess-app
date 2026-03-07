@@ -1,19 +1,17 @@
 import {
   HeadContent,
-  Outlet,
   Scripts,
   createRootRoute,
-  Link,
-  useLocation,
 } from "@tanstack/react-router";
 import appCss from "../styles.css?url";
+import { WebSocketProvider } from "../lib/websocket-context";
 
 export const Route = createRootRoute({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Chess Arena — 5 Themes" },
+      { title: "Chess Arena" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -33,9 +31,11 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body style={{ margin: 0, padding: 0, minHeight: "100vh" }}>
-        {children}
+        {/* WebSocketProvider wraps the whole app so the connection persists across navigation */}
+        <WebSocketProvider>{children}</WebSocketProvider>
         <Scripts />
       </body>
     </html>
   );
 }
+

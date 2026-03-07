@@ -18,7 +18,7 @@ async function initializeRedis() {
     console.error("❌ Failed to connect to Redis:", error);
   }
 }
-await initializeRedis();
+// await initializeRedis();
 
 // --- Types ---
 type Type = "start" | "join" | "move";

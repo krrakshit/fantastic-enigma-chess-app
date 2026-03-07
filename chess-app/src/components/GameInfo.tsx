@@ -18,9 +18,13 @@ interface GameInfoProps {
     backLink: React.CSSProperties;
   };
   themeName: string;
+  /** Optional: hide undo/reset buttons (e.g. in multiplayer) */
+  hideControls?: boolean;
+  /** Optional: extra content rendered below the heading */
+  headerSlot?: React.ReactNode;
 }
 
-export function GameInfo({ game, styles, themeName }: GameInfoProps) {
+export function GameInfo({ game, styles, themeName, hideControls = false, headerSlot }: GameInfoProps) {
   const statusText = (() => {
     switch (game.gameStatus) {
       case "checkmate":
@@ -51,6 +55,8 @@ export function GameInfo({ game, styles, themeName }: GameInfoProps) {
         ← Back
       </Link>
       <h1 style={styles.heading}>{themeName}</h1>
+
+      {headerSlot}
 
       {/* Status */}
       <div style={styles.statusBanner}>{statusText}</div>
@@ -152,14 +158,16 @@ export function GameInfo({ game, styles, themeName }: GameInfoProps) {
       </div>
 
       {/* Controls */}
-      <div style={{ marginTop: 24, display: "flex", gap: 10 }}>
-        <button onClick={game.undo} style={styles.button}>
-          Undo
-        </button>
-        <button onClick={game.reset} style={styles.button}>
-          New Game
-        </button>
-      </div>
+      {!hideControls && (
+        <div style={{ marginTop: 24, display: "flex", gap: 10 }}>
+          <button onClick={game.undo} style={styles.button}>
+            Undo
+          </button>
+          <button onClick={game.reset} style={styles.button}>
+            New Game
+          </button>
+        </div>
+      )}
     </div>
   );
 }

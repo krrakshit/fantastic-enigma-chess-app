@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Chess, type Square, type Move } from "chess.js";
 import type {
   ChessGameState,
@@ -10,6 +10,16 @@ import type {
   PieceColor,
 } from "./chess-engine";
 import { useWebSocket, type WsStatus } from "./websocket-context";
+
+// ─── Module-level constants ────────────────────────────────────────────────────
+const PIECE_VALUES: Record<string, number> = {
+  p: 1,
+  n: 3,
+  b: 3,
+  r: 5,
+  q: 9,
+  k: 0,
+};
 
 // ─── Internal helpers ──────────────────────────────────────────────────────────
 
@@ -47,7 +57,10 @@ function getGameStatus(game: Chess): GameStatus {
   return "playing";
 }
 
-function getCapturedPieces(history: Move[]): { w: ChessPiece[]; b: ChessPiece[] } {
+function getCapturedPieces(history: Move[]): {
+  w: ChessPiece[];
+  b: ChessPiece[];
+} {
   const captured: { w: ChessPiece[]; b: ChessPiece[] } = { w: [], b: [] };
   for (const move of history) {
     if (move.captured) {
@@ -63,6 +76,21 @@ function getCapturedPieces(history: Move[]): { w: ChessPiece[]; b: ChessPiece[] 
 
 // ─── Public types ──────────────────────────────────────────────────────────────
 
+export interface GameResult {
+  winner: string | null;
+  runnerup: string | null;
+  winnerPoints: number;
+  runnerupPoints: number;
+  myPoints: number;
+  opponentPoints: number;
+  totalMoves: number;
+  status: string;
+  roomId: string;
+  startedAt: string;
+  endedAt: string;
+  durationSeconds: number;
+}
+
 export interface MultiplayerGameState extends ChessGameState {
   /** The color assigned to the local player */
   myColor: PieceColor | null;
@@ -74,6 +102,13 @@ export interface MultiplayerGameState extends ChessGameState {
   opponentId: string | null;
   /** Latest server error message, if any */
   errorMessage: string | null;
+  /** Running point totals */
+  myPoints: number;
+  opponentPoints: number;
+  /** Populated when server sends game_over */
+  gameResult: GameResult | null;
+  /** ISO timestamp of the first move (null before game starts) */
+  gameStartedAt: string | null;
 }
 
 export interface GameRoomData {
@@ -94,7 +129,7 @@ export interface GameRoomData {
  * keeps the correct socket reference for the room.
  */
 export function useChessWebSocket(
-  roomData: GameRoomData | null
+  roomData: GameRoomData | null,
 ): MultiplayerGameState {
   // ── Global WS (shared with lobby) ──────────────────────────────────────
   const { send, addListener, status } = useWebSocket();
@@ -103,6 +138,13 @@ export function useChessWebSocket(
   const [chess] = useState(() => new Chess());
   const [, forceUpdate] = useState(0);
   const refresh = useCallback(() => forceUpdate((n) => n + 1), []);
+  const moveStartTime = useRef<number>(Date.now());
+  const gameStartTime = useRef<number | null>(null); // set on first move
+  const myPointsRef = useRef(0);
+  const opponentPointsRef = useRef(0);
+  const [myPoints, setMyPoints] = useState(0);
+  const [opponentPoints, setOpponentPoints] = useState(0);
+  const [gameResult, setGameResult] = useState<GameResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Derive player color from room data
@@ -124,15 +166,55 @@ export function useChessWebSocket(
 
     const unsub = addListener((msg) => {
       if (msg.type === "move" && msg.move) {
-        // Apply the opponent's move to our local chess instance
+        // Apply the opponent's move and accumulate their points
         try {
           chess.move({
             from: msg.move.from as Square,
             to: msg.move.to as Square,
           });
+          if (msg.move.points) {
+            opponentPointsRef.current += msg.move.points;
+            setOpponentPoints(opponentPointsRef.current);
+          }
           refresh();
         } catch {
           // Server sent an illegal move — should never happen, just ignore
+        }
+      } else if (msg.type === "game_over") {
+        const myPts = myPointsRef.current;
+        const oppPts = opponentPointsRef.current;
+        const endedAt = new Date();
+        const startedAt = gameStartTime.current
+          ? new Date(gameStartTime.current)
+          : endedAt;
+        const durationSeconds = Math.round(
+          (endedAt.getTime() - startedAt.getTime()) / 1000,
+        );
+        const result: GameResult = {
+          winner: msg.winner ?? null,
+          runnerup: msg.runnerup ?? null,
+          winnerPoints: msg.winnerPoints ?? 0,
+          runnerupPoints: msg.runnerupPoints ?? 0,
+          myPoints: myPts,
+          opponentPoints: oppPts,
+          totalMoves: chess.history().length,
+          status: "checkmate",
+          roomId: msg.roomId ?? roomData?.roomId ?? "",
+          startedAt: startedAt.toISOString(),
+          endedAt: endedAt.toISOString(),
+          durationSeconds,
+        };
+        setGameResult(result);
+        // Persist full game result alongside the session data
+        try {
+          const raw = localStorage.getItem("gameData");
+          const session = raw ? JSON.parse(raw) : {};
+          localStorage.setItem(
+            "gameResult",
+            JSON.stringify({ ...session, ...result }),
+          );
+        } catch {
+          /* ignore */
         }
       } else if (msg.type === "error") {
         setErrorMessage(msg.message ?? "Server error");
@@ -156,6 +238,17 @@ export function useChessWebSocket(
         if (move) {
           // Push move to the server so it can relay it to the opponent
           if (roomData) {
+            const now = Date.now();
+            if (gameStartTime.current === null) gameStartTime.current = now;
+            const elapsed = now - moveStartTime.current;
+            moveStartTime.current = now;
+            const points = move.captured
+              ? (PIECE_VALUES[move.captured] ?? 0)
+              : 0;
+            if (points > 0) {
+              myPointsRef.current += points;
+              setMyPoints(myPointsRef.current);
+            }
             send({
               content: "move",
               uid: roomData.currentPlayerId,
@@ -165,6 +258,8 @@ export function useChessWebSocket(
                 piece: move.piece,
                 from,
                 to,
+                time: elapsed,
+                points,
               },
             });
           }
@@ -173,17 +268,20 @@ export function useChessWebSocket(
         }
         return { success: false, error: "Invalid move" };
       } catch (e: unknown) {
-        return { success: false, error: e instanceof Error ? e.message : "Invalid move" };
+        return {
+          success: false,
+          error: e instanceof Error ? e.message : "Invalid move",
+        };
       }
     },
-    [chess, myColor, roomData, send, refresh]
+    [chess, myColor, roomData, send, refresh],
   );
 
   // ── legalMoves ──────────────────────────────────────────────────────────
   const legalMoves = useCallback(
     (square: Square): Square[] =>
       chess.moves({ square, verbose: true }).map((m) => m.to),
-    [chess]
+    [chess],
   );
 
   // ── undo / reset (disabled in multiplayer) ─────────────────────────────
@@ -201,7 +299,7 @@ export function useChessWebSocket(
         (piece.color === "b" && toRank === 1)
       );
     },
-    [chess]
+    [chess],
   );
 
   // ── Assemble state ──────────────────────────────────────────────────────
@@ -229,5 +327,11 @@ export function useChessWebSocket(
     connectionStatus: status,
     opponentId,
     errorMessage,
+    myPoints,
+    opponentPoints,
+    gameResult,
+    gameStartedAt: gameStartTime.current
+      ? new Date(gameStartTime.current).toISOString()
+      : null,
   };
 }

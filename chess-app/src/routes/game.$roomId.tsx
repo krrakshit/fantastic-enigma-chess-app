@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { ChessBoard } from "../components/ChessBoard";
-import { useChessWebSocket } from "../lib/useChessWebSocket";
+import { useChessWebSocket, type GameResult } from "../lib/useChessWebSocket";
 import { PieceSVG } from "../lib/piece-svgs";
 import type { Move } from "chess.js";
 import { useWebSocket } from "../lib/websocket-context";
@@ -80,12 +80,14 @@ function PlayerStrip({
   color,
   isActive,
   captures,
+  points,
 }: {
   label: string;
   id: string;
   color: "w" | "b";
   isActive: boolean;
   captures: { type: string; color: string }[];
+  points: number;
 }) {
   const A = "#C9A84C";
   return (
@@ -111,6 +113,16 @@ function PlayerStrip({
           {shortId(id)}
         </div>
       </div>
+      {/* Points badge */}
+      <div style={{
+        padding: "2px 8px", borderRadius: 6,
+        background: points > 0 ? "rgba(201,168,76,.12)" : "rgba(255,255,255,.03)",
+        border: `1px solid ${points > 0 ? "rgba(201,168,76,.3)" : "rgba(255,255,255,.06)"}`,
+        fontSize: ".72rem", fontWeight: 700, color: points > 0 ? A : "#333",
+        minWidth: 28, textAlign: "center", flexShrink: 0,
+      }}>
+        {points}pt{points !== 1 ? "s" : ""}
+      </div>
       {captures.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
           {captures.slice(0, 8).map((p, i) => (
@@ -134,29 +146,74 @@ function GameOverOverlay({
   status,
   turn,
   myColor,
+  gameResult,
+  myId,
+  myPoints,
+  opponentPoints,
+  gameStartedAt,
 }: {
   status: string;
   turn: string;
   myColor: string | null;
+  gameResult: GameResult | null;
+  myId: string;
+  myPoints: number;
+  opponentPoints: number;
+  gameStartedAt: string | null;
 }) {
   const { send } = useWebSocket();
   const hasSentGameOver = useRef(false);
 
   useEffect(() => {
     if (status === "checkmate" && !hasSentGameOver.current) {
+      const winnerColor = turn === "w" ? "b" : "w";
+      const iAmWinner = winnerColor === myColor;
+      if (!iAmWinner) return;
+
       hasSentGameOver.current = true;
       try {
         const raw = localStorage.getItem("gameData");
         if (raw) {
           const parsed = JSON.parse(raw);
+          const winner = winnerColor === "w" ? parsed.player1Id : parsed.player2Id;
+          const runnerup = winnerColor === "w" ? parsed.player2Id : parsed.player1Id;
           send({
-            content: "game_over",
-            move: { roomID: parsed.roomId }
+            content: { Winner: winner, Runnerup: runnerup, roomId: parsed.roomId },
+            uid: parsed.currentPlayerId,
           } as any);
         }
       } catch (e) {}
     }
-  }, [status, send]);
+  }, [status, turn, myColor, send]);
+
+  // For draw/stalemate, save to localStorage since no server game_over is sent
+  useEffect(() => {
+    const drawStatuses = ["stalemate", "draw", "threefold", "insufficient"];
+    if (drawStatuses.includes(status)) {
+      try {
+        const raw = localStorage.getItem("gameData");
+        const session = raw ? JSON.parse(raw) : {};
+        const endedAt = new Date();
+        const startedAt = gameStartedAt ? new Date(gameStartedAt) : endedAt;
+        const durationSeconds = Math.round((endedAt.getTime() - startedAt.getTime()) / 1000);
+        const result: GameResult = {
+          winner: null,
+          runnerup: null,
+          winnerPoints: 0,
+          runnerupPoints: 0,
+          myPoints,
+          opponentPoints,
+          totalMoves: 0,
+          status,
+          roomId: session.roomId ?? "",
+          startedAt: startedAt.toISOString(),
+          endedAt: endedAt.toISOString(),
+          durationSeconds,
+        };
+        localStorage.setItem("gameResult", JSON.stringify({ ...session, ...result }));
+      } catch (e) {}
+    }
+  }, [status]);
 
   const terminalStatuses = ["checkmate", "stalemate", "draw", "threefold", "insufficient"];
   if (!terminalStatuses.includes(status)) return null;
@@ -173,6 +230,17 @@ function GameOverOverlay({
     sub = "Stalemate — no legal moves.";
   }
 
+  // Use server-authoritative points if available, otherwise fall back to local
+  const iAmWinner = gameResult
+    ? gameResult.winner === myId
+    : (turn === "w" ? "b" : "w") === myColor;
+  const displayMyPts = gameResult
+    ? (iAmWinner ? gameResult.winnerPoints : gameResult.runnerupPoints)
+    : myPoints;
+  const displayOppPts = gameResult
+    ? (iAmWinner ? gameResult.runnerupPoints : gameResult.winnerPoints)
+    : opponentPoints;
+
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 2000,
@@ -184,7 +252,7 @@ function GameOverOverlay({
         border: `1px solid ${A}33`, borderRadius: 20,
         padding: "48px 56px", textAlign: "center",
         boxShadow: `0 32px 80px rgba(0,0,0,.6)`,
-        maxWidth: 380,
+        maxWidth: 400,
       }}>
         <div style={{ fontSize: "4rem", marginBottom: 14 }}>{emoji}</div>
         <h2 style={{
@@ -193,7 +261,27 @@ function GameOverOverlay({
           background: `linear-gradient(135deg,${A},#fff)`,
           WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
         }}>{headline}</h2>
-        <p style={{ color: "#888", fontSize: "1rem", marginBottom: 32, lineHeight: 1.6 }}>{sub}</p>
+        <p style={{ color: "#888", fontSize: "1rem", marginBottom: 24, lineHeight: 1.6 }}>{sub}</p>
+        {/* Score card */}
+        {status === "checkmate" && (
+          <div style={{
+            display: "flex", gap: 12, marginBottom: 28,
+            background: "rgba(255,255,255,.03)", borderRadius: 10, padding: "14px 18px",
+            border: "1px solid rgba(255,255,255,.06)",
+          }}>
+            <div style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ fontSize: ".62rem", color: "#555", letterSpacing: ".1em", marginBottom: 4 }}>YOU</div>
+              <div style={{ fontSize: "1.6rem", fontWeight: 900, color: A }}>{displayMyPts}</div>
+              <div style={{ fontSize: ".6rem", color: "#444" }}>pts</div>
+            </div>
+            <div style={{ width: 1, background: "rgba(255,255,255,.06)" }} />
+            <div style={{ flex: 1, textAlign: "center" }}>
+              <div style={{ fontSize: ".62rem", color: "#555", letterSpacing: ".1em", marginBottom: 4 }}>OPPONENT</div>
+              <div style={{ fontSize: "1.6rem", fontWeight: 900, color: "#888" }}>{displayOppPts}</div>
+              <div style={{ fontSize: ".6rem", color: "#444" }}>pts</div>
+            </div>
+          </div>
+        )}
         <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
           <Link to="/game" style={{
             padding: "12px 28px",
@@ -304,7 +392,16 @@ function GameRoom() {
       <div style={{ position:"fixed", inset:0, pointerEvents:"none", backgroundImage:"linear-gradient(rgba(201,168,76,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(201,168,76,.025) 1px,transparent 1px)", backgroundSize:"60px 60px" }} />
       <div style={{ position:"fixed", inset:0, pointerEvents:"none", background:"radial-gradient(ellipse at 30% 40%,rgba(201,168,76,.05) 0%,transparent 55%)" }} />
 
-      <GameOverOverlay status={game.gameStatus} turn={game.turn} myColor={myColor} />
+        <GameOverOverlay
+        status={game.gameStatus}
+        turn={game.turn}
+        myColor={myColor}
+        gameResult={game.gameResult}
+        myId={myId}
+        myPoints={game.myPoints}
+        opponentPoints={game.opponentPoints}
+        gameStartedAt={game.gameStartedAt}
+      />
 
       {/* Layout: board + sidebar */}
       <div style={{ display:"flex", gap:36, alignItems:"flex-start", position:"relative", zIndex:1, flexWrap:"wrap", justifyContent:"center", animation:"fadeUp .4s ease" }}>
@@ -319,6 +416,7 @@ function GameRoom() {
               color={topColor}
               isActive={game.turn === topColor}
               captures={topCaptures}
+              points={topIsMe ? game.myPoints : game.opponentPoints}
             />
           </div>
 
@@ -338,6 +436,7 @@ function GameRoom() {
               color={bottomColor}
               isActive={game.turn === bottomColor}
               captures={bottomCaptures}
+              points={topIsMe ? game.opponentPoints : game.myPoints}
             />
           </div>
         </div>

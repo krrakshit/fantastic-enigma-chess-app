@@ -2,8 +2,8 @@ import { createClient } from "redis";
 import { PrismaClient } from "../generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL })
-})
+  adapter: new PrismaPg({ connectionString: "postgresql://postgres:mypassword@localhost:5432" }),
+});
 let redisClient = createClient({
   url: "redis://localhost:6379",
 });
@@ -59,19 +59,28 @@ async function processqueue() {
               piece: data.piece,
               from: data.from,
               to: data.to,
+              time: data.time ?? 0,
+              points: data.points ?? 0,
             },
           });
           console.log("Move stored in DB");
         } else if (data.type === "game_over") {
-          console.log("Game end fo room id" + data.roomID ) ;
+          console.log("Game end for room id: " + data.roomID);
           await prisma.game.update({
-            where : {
-             roomID : data.roomID
-            }, 
-            data : {
-              status : "finished",
-            }
-          })
+            where: {
+              roomID: data.roomID,
+            },
+            data: {
+              status: "finished",
+              Winner: data.winner,
+              Runnerup: data.runnerup,
+              Winnerpoints: data.winnerPoints ?? 0,
+              RunnerupPoints: data.runnerupPoints ?? 0,
+            },
+          });
+          console.log(
+            `Game over stored: Winner=${data.winner} (${data.winnerPoints}pts), Runnerup=${data.runnerup} (${data.runnerupPoints}pts)`,
+          );
         }
       }
     } catch (error) {

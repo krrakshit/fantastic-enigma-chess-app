@@ -16,11 +16,15 @@ datasource db {
 model Game {
   id        String   @id @default(cuid())
   roomID    String   @unique
-  player1id String   @unique
-  player2id String   @unique
+  player1id String   
+  player2id String   
+  Winner    String?   
+  Runnerup  String?   
   moves     Move[]   @relation("GameMoves")
   createdAt DateTime @default(now())
   status    State    @default(start)
+  Winnerpoints Int   @default(0)
+  RunnerupPoints Int @default(0)
 }
 
 model Move {
@@ -31,6 +35,8 @@ model Move {
   piece     String
   from      String
   to        String
+  time      Int
+  points    Int    @default(0)
   createdAt DateTime @default(now())
 
   @@map("moves")

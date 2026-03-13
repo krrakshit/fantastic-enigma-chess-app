@@ -18,17 +18,23 @@ async function initializeRedis() {
     console.error("❌ Failed to connect to Redis:", error);
   }
 }
-// await initializeRedis();
+await initializeRedis();
 
 // --- Types ---
-type Type = "start" | "join" | "move" | "game_over";
-
+type Type = "start" | "join" | "move" | GameOver;
+type GameOver = {
+  Winner: string;
+  Runnerup: string;
+  roomId: string;
+};
 type Move = {
   roomID: string;
   playerID: string;
   piece: string;
   from: string;
   to: string;
+  time: number;
+  points: number;
 };
 
 type Message = {
@@ -64,6 +70,11 @@ function generateRoomId(): string {
 
 function sendMessage(ws: any, type: string, data: Record<string, any>) {
   ws.send(JSON.stringify({ type, ...data }));
+}
+
+function getPieceValue(piece: string): number {
+  const values: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+  return values[piece.toLowerCase()] ?? 0;
 }
 
 // --- Server ---
@@ -172,15 +183,19 @@ const app = new Elysia()
               to: move.to,
             });
             if (moveResult) {
-              // Valid move
-              room.moves.push(move);
+              // Calculate points server-side from the actual captured piece
+              const points = moveResult.captured
+                ? getPieceValue(moveResult.captured)
+                : 0;
+              const moveWithPoints: Move = { ...move, points };
+              room.moves.push(moveWithPoints);
 
               // Send to opponent
               const opponentSocket = isPlayer1
                 ? room.player2Socket
                 : room.player1Socket;
               if (opponentSocket) {
-                sendMessage(opponentSocket, "move", { move });
+                sendMessage(opponentSocket, "move", { move: moveWithPoints });
               }
 
               // Push to Redis for main backend with type
@@ -188,7 +203,7 @@ const app = new Elysia()
                 "chess",
                 JSON.stringify({
                   type: "move",
-                  ...move,
+                  ...moveWithPoints,
                 }),
               );
             } else {
@@ -199,14 +214,58 @@ const app = new Elysia()
           }
         }
 
-        if (message.content === "game_over") {
+        if (
+          typeof message.content === "object" &&
+          message.content !== null &&
+          "Winner" in (message.content as object)
+        ) {
+          const gameOver = message.content as GameOver;
+          const room = activeRooms.get(gameOver.roomId);
+          if (!room) {
+            sendMessage(ws, "error", { message: "Room not found" });
+            return;
+          }
+
+          // Tally total points per player from stored moves
+          const winnerPoints = room.moves
+            .filter((m) => m.playerID === gameOver.Winner)
+            .reduce((sum, m) => sum + m.points, 0);
+          const runnerupPoints = room.moves
+            .filter((m) => m.playerID === gameOver.Runnerup)
+            .reduce((sum, m) => sum + m.points, 0);
+
+          console.log(
+            `Game over in room ${gameOver.roomId}: Winner=${gameOver.Winner} (${winnerPoints}pts), Runnerup=${gameOver.Runnerup} (${runnerupPoints}pts)`,
+          );
+
+          // Notify both players
+          const gameOverPayload = {
+            winner: gameOver.Winner,
+            runnerup: gameOver.Runnerup,
+            winnerPoints,
+            runnerupPoints,
+            roomId: gameOver.roomId,
+          };
+          sendMessage(room.player1Socket, "game_over", gameOverPayload);
+          if (room.player2Socket) {
+            sendMessage(room.player2Socket, "game_over", gameOverPayload);
+          }
+
+          // Push to Redis for main backend
           redisClient.lPush(
             "chess",
             JSON.stringify({
               type: "game_over",
-              roomID: message.move?.roomID,
+              roomID: gameOver.roomId,
+              winner: gameOver.Winner,
+              runnerup: gameOver.Runnerup,
+              winnerPoints,
+              runnerupPoints,
             }),
           );
+
+          // Clean up the room
+          activeRooms.delete(gameOver.roomId);
         }
       } catch (error) {
         console.error("Error parsing message:", error);

@@ -43,12 +43,17 @@ type Message = {
   move?: Move;
 };
 
+type WsConnection = Pick<
+  Bun.ServerWebSocket<unknown>,
+  "send" | "subscribe" | "unsubscribe" | "publish"
+>;
+
 type Room = {
   roomId: string;
   player1Id: string;
-  player1Socket: any;
+  player1Socket: WsConnection;
   player2Id?: string;
-  player2Socket?: any;
+  player2Socket?: WsConnection;
   chess: Chess;
   moves: Move[];
 };
@@ -58,7 +63,7 @@ type Room = {
 const roomQueue: Room[] = [];
 
 // Store active connections with player ID
-const playerConnections = new Map<string, any>();
+const playerConnections = new Map<string, WsConnection>();
 
 // Store rooms by roomId
 const activeRooms = new Map<string, Room>();
@@ -68,7 +73,11 @@ function generateRoomId(): string {
   return Math.random().toString(36).substring(2, 11);
 }
 
-function sendMessage(ws: any, type: string, data: Record<string, any>) {
+function sendMessage(
+  ws: WsConnection,
+  type: string,
+  data: Record<string, any>,
+) {
   ws.send(JSON.stringify({ type, ...data }));
 }
 
@@ -78,6 +87,7 @@ function getPieceValue(piece: string): number {
 }
 
 // --- Server ---
+// TODO: can be done using subscribe, unsubscribe and publish
 const app = new Elysia()
   .ws("/ws", {
     open(ws) {

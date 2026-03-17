@@ -18,7 +18,7 @@ async function initializeRedis() {
     console.error("❌ Failed to connect to Redis:", error);
   }
 }
-await initializeRedis();
+// await initializeRedis();
 
 // --- Types ---
 type Type = "start" | "join" | "move" | GameOver;
@@ -35,6 +35,7 @@ type Move = {
   to: string;
   time: number;
   points: number;
+  promotion?: string;
 };
 
 type Message = {
@@ -188,19 +189,49 @@ const app = new Elysia()
           }
 
           try {
+            // Determine if this move is a pawn promotion
+            const piece = room.chess.get(move.from as any);
+            const toRank = parseInt(move.to[1]);
+            const isPawnPromotion =
+              piece?.type === "p" &&
+              ((piece.color === "w" && toRank === 8) ||
+                (piece.color === "b" && toRank === 1));
+
+            const validPromotions = ["q", "r", "b", "n"];
+            // Only apply promotion field when it's actually a promotion move
+            const promotionPiece =
+              isPawnPromotion && validPromotions.includes(move.promotion ?? "")
+                ? move.promotion
+                : isPawnPromotion
+                  ? "q" // default to queen if no valid promotion sent
+                  : undefined;
+
             const moveResult = room.chess.move({
               from: move.from,
               to: move.to,
+              ...(promotionPiece ? { promotion: promotionPiece } : {}),
             });
+
             if (moveResult) {
               // Calculate points server-side from the actual captured piece
               const points = moveResult.captured
                 ? getPieceValue(moveResult.captured)
                 : 0;
-              const moveWithPoints: Move = { ...move, points };
+
+              // Build the final move payload — include promotion so opponent
+              // can call chess.move({ from, to, promotion }) correctly
+              const moveWithPoints: Move = {
+                ...move,
+                points,
+                promotion: promotionPiece, // undefined for non-promotion moves
+              };
               room.moves.push(moveWithPoints);
 
-              // Send to opponent
+              console.log(
+                `Move: ${move.from}->${move.to}${promotionPiece ? `=${promotionPiece}` : ""} | pts=${points}`,
+              );
+
+              // Relay to opponent (with promotion field so they can apply the move)
               const opponentSocket = isPlayer1
                 ? room.player2Socket
                 : room.player1Socket;
@@ -208,7 +239,7 @@ const app = new Elysia()
                 sendMessage(opponentSocket, "move", { move: moveWithPoints });
               }
 
-              // Push to Redis for main backend with type
+              // Push to Redis for main backend persistence (includes promotion)
               redisClient.lPush(
                 "chess",
                 JSON.stringify({
@@ -290,3 +321,4 @@ const app = new Elysia()
 console.log(
   `🦊 WebSocket server is running at ${app.server?.hostname}:${app.server?.port}`,
 );
+  

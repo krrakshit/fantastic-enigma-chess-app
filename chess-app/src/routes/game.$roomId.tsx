@@ -306,11 +306,36 @@ function GameRoom() {
   const { roomId } = Route.useParams();
   const [gameData, setGameData] = useState<GameData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [wasRestored, setWasRestored] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem("gameData");
-    if (stored) {
-      try { setGameData(JSON.parse(stored)); } catch { /* ignore */ }
+    // Prefer the full chessGameState (has FEN + moves) over raw gameData
+    const storedState = localStorage.getItem("chessGameState");
+    const storedData = localStorage.getItem("gameData");
+
+    if (storedState) {
+      try {
+        const parsed = JSON.parse(storedState);
+        // Only restore if it matches the current roomId in the URL
+        if (parsed.roomId === roomId) {
+          setGameData({
+            roomId: parsed.roomId,
+            player1Id: parsed.player1Id,
+            player2Id: parsed.player2Id,
+            currentPlayerId: parsed.currentPlayerId,
+          });
+          // If we have more than 0 moves saved, we're restoring a live session
+          if (parsed.moves && parsed.moves.length > 0) {
+            setWasRestored(true);
+          }
+          setLoading(false);
+          return;
+        }
+      } catch { /* ignore */ }
+    }
+
+    if (storedData) {
+      try { setGameData(JSON.parse(storedData)); } catch { /* ignore */ }
     }
     setLoading(false);
   }, [roomId]);
@@ -392,7 +417,7 @@ function GameRoom() {
       <div style={{ position:"fixed", inset:0, pointerEvents:"none", backgroundImage:"linear-gradient(rgba(201,168,76,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(201,168,76,.025) 1px,transparent 1px)", backgroundSize:"60px 60px" }} />
       <div style={{ position:"fixed", inset:0, pointerEvents:"none", background:"radial-gradient(ellipse at 30% 40%,rgba(201,168,76,.05) 0%,transparent 55%)" }} />
 
-        <GameOverOverlay
+      <GameOverOverlay
         status={game.gameStatus}
         turn={game.turn}
         myColor={myColor}
@@ -402,6 +427,33 @@ function GameRoom() {
         opponentPoints={game.opponentPoints}
         gameStartedAt={game.gameStartedAt}
       />
+
+      {/* Reconnection restored banner */}
+      {wasRestored && game.connectionStatus === "connected" && (
+        <div style={{
+          position: "fixed", top: 16, left: "50%", transform: "translateX(-50%)",
+          zIndex: 1500, padding: "10px 20px", borderRadius: 8,
+          background: "rgba(0,255,136,.12)", border: "1px solid rgba(0,255,136,.3)",
+          color: "#00FF88", fontSize: ".82rem", fontWeight: 600,
+          display: "flex", alignItems: "center", gap: 8,
+          animation: "fadeUp .4s ease",
+          boxShadow: "0 4px 24px rgba(0,255,136,.15)",
+        }}>
+          <div style={{
+            width: 8, height: 8, borderRadius: "50%",
+            background: "#00FF88", boxShadow: "0 0 6px rgba(0,255,136,.8)",
+            animation: "pulse 1.5s infinite",
+          }} />
+          ♻ Session restored — reconnected successfully
+          <button
+            onClick={() => setWasRestored(false)}
+            style={{
+              marginLeft: 8, background: "none", border: "none",
+              color: "#00FF88", cursor: "pointer", fontSize: "1rem", lineHeight: 1,
+            }}
+          >×</button>
+        </div>
+      )}
 
       {/* Layout: board + sidebar */}
       <div style={{ display:"flex", gap:36, alignItems:"flex-start", position:"relative", zIndex:1, flexWrap:"wrap", justifyContent:"center", animation:"fadeUp .4s ease" }}>

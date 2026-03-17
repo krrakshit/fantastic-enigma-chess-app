@@ -135,15 +135,47 @@ export function useChessWebSocket(
   const { send, addListener, status } = useWebSocket();
 
   // ── Local chess state ───────────────────────────────────────────────────
-  const [chess] = useState(() => new Chess());
+  const [chess] = useState(() => {
+    // Restore board from localStorage if a matching saved state exists
+    if (roomData) {
+      try {
+        const raw = localStorage.getItem("chessGameState");
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (saved.roomId === roomData.roomId && saved.fen) {
+            const restored = new Chess(saved.fen);
+            return restored;
+          }
+        }
+      } catch { /* fallback to new game */ }
+    }
+    return new Chess();
+  });
   const [, forceUpdate] = useState(0);
   const refresh = useCallback(() => forceUpdate((n) => n + 1), []);
   const moveStartTime = useRef<number>(Date.now());
   const gameStartTime = useRef<number | null>(null); // set on first move
-  const myPointsRef = useRef(0);
-  const opponentPointsRef = useRef(0);
-  const [myPoints, setMyPoints] = useState(0);
-  const [opponentPoints, setOpponentPoints] = useState(0);
+
+  // Restore point totals from localStorage if available
+  const _getSavedPoints = () => {
+    if (roomData) {
+      try {
+        const raw = localStorage.getItem("chessGameState");
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (saved.roomId === roomData.roomId) {
+            return { my: saved.myPoints ?? 0, opp: saved.opponentPoints ?? 0 };
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    return { my: 0, opp: 0 };
+  };
+  const _initPoints = _getSavedPoints();
+  const myPointsRef = useRef<number>(_initPoints.my);
+  const opponentPointsRef = useRef<number>(_initPoints.opp);
+  const [myPoints, setMyPoints] = useState<number>(_initPoints.my);
+  const [opponentPoints, setOpponentPoints] = useState<number>(_initPoints.opp);
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -160,22 +192,85 @@ export function useChessWebSocket(
       : roomData.player1Id
     : null;
 
+  // ── Persist game state to localStorage ────────────────────────────────
+  /**
+   * Saves the full game state (FEN + move history + room info) to localStorage
+   * after every move. This allows the game to be restored if the WebSocket
+   * connection is lost and the page is refreshed.
+   */
+  const persistGameState = useCallback(
+    (currentChess: Chess) => {
+      if (!roomData) return;
+      try {
+        const history = currentChess.history({ verbose: true });
+        const gameState = {
+          // Room meta
+          roomId: roomData.roomId,
+          player1Id: roomData.player1Id,
+          player2Id: roomData.player2Id,
+          currentPlayerId: roomData.currentPlayerId,
+          // FEN for direct board restore
+          fen: currentChess.fen(),
+          // Full move list so UI can replay or display history
+          moves: history.map((m) => ({
+            from: m.from,
+            to: m.to,
+            piece: m.piece,
+            promotion: m.promotion,
+            captured: m.captured,
+            san: m.san,
+            color: m.color,
+          })),
+          // Point snapshots
+          myPoints: myPointsRef.current,
+          opponentPoints: opponentPointsRef.current,
+          // Timestamps
+          savedAt: new Date().toISOString(),
+          gameStartedAt: gameStartTime.current
+            ? new Date(gameStartTime.current).toISOString()
+            : null,
+        };
+        localStorage.setItem("chessGameState", JSON.stringify(gameState));
+        // Keep legacy "gameData" key in sync for other parts of the app
+        localStorage.setItem(
+          "gameData",
+          JSON.stringify({
+            roomId: roomData.roomId,
+            player1Id: roomData.player1Id,
+            player2Id: roomData.player2Id,
+            currentPlayerId: roomData.currentPlayerId,
+          }),
+        );
+      } catch {
+        /* storage might be full — ignore */
+      }
+    },
+    [roomData],
+  );
+
   // ── Subscribe to incoming opponent moves ───────────────────────────────
   useEffect(() => {
     if (!roomData) return;
 
     const unsub = addListener((msg) => {
       if (msg.type === "move" && msg.move) {
-        // Apply the opponent's move and accumulate their points
+        // Apply the opponent's move, including promotion if present
         try {
-          chess.move({
+          const movePayload: { from: Square; to: Square; promotion?: string } = {
             from: msg.move.from as Square,
             to: msg.move.to as Square,
-          });
+          };
+          // Only pass promotion when it's a valid promotion piece
+          if (msg.move.promotion && ["q", "r", "b", "n"].includes(msg.move.promotion)) {
+            movePayload.promotion = msg.move.promotion;
+          }
+          chess.move(movePayload);
           if (msg.move.points) {
             opponentPointsRef.current += msg.move.points;
             setOpponentPoints(opponentPointsRef.current);
           }
+          // Persist state after opponent move
+          persistGameState(chess);
           refresh();
         } catch {
           // Server sent an illegal move — should never happen, just ignore
@@ -205,7 +300,7 @@ export function useChessWebSocket(
           durationSeconds,
         };
         setGameResult(result);
-        // Persist full game result alongside the session data
+        // Persist full game result — clear game state on finish
         try {
           const raw = localStorage.getItem("gameData");
           const session = raw ? JSON.parse(raw) : {};
@@ -213,6 +308,8 @@ export function useChessWebSocket(
             "gameResult",
             JSON.stringify({ ...session, ...result }),
           );
+          // Clear in-progress state now that the game is over
+          localStorage.removeItem("chessGameState");
         } catch {
           /* ignore */
         }
@@ -224,7 +321,7 @@ export function useChessWebSocket(
     });
 
     return unsub; // removes this handler when the component unmounts
-  }, [roomData?.roomId, addListener, chess, refresh]);
+  }, [roomData?.roomId, addListener, chess, refresh, persistGameState]);
 
   // ── makeMove ────────────────────────────────────────────────────────────
   const makeMove = useCallback(
@@ -249,6 +346,8 @@ export function useChessWebSocket(
               myPointsRef.current += points;
               setMyPoints(myPointsRef.current);
             }
+            // Persist game state after our own move
+            persistGameState(chess);
             send({
               content: "move",
               uid: roomData.currentPlayerId,
@@ -260,6 +359,8 @@ export function useChessWebSocket(
                 to,
                 time: elapsed,
                 points,
+                // Only include promotion when it's actually a promotion move
+                promotion: promotion ?? undefined,
               },
             });
           }

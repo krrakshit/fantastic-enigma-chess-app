@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-router";
 import appCss from "../styles.css?url";
 import { WebSocketProvider } from "../lib/websocket-context";
+import { AuthProvider } from "../lib/auth-context";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -31,11 +32,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body style={{ margin: 0, padding: 0, minHeight: "100vh" }}>
-        {/* WebSocketProvider wraps the whole app so the connection persists across navigation */}
-        <WebSocketProvider>{children}</WebSocketProvider>
+        {/* AuthProvider wraps WebSocketProvider so auth state is available everywhere */}
+        <AuthProvider>
+          <WebSocketProvider>{children}</WebSocketProvider>
+        </AuthProvider>
         <Scripts />
       </body>
     </html>
   );
 }
-

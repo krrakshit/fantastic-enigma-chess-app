@@ -452,7 +452,7 @@ export function ChessBoard({
 
       {promotion && (
         <PromotionDialog
-          color={game.turn === "w" ? "b" : "w"}
+          color={game.turn}
           onSelect={handlePromotion}
           theme={theme}
         />

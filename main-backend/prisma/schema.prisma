@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client"
   output   = "../generated/prisma"
@@ -13,18 +7,38 @@ datasource db {
   provider = "postgresql"
 }
 
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  username       String   @unique
+  email          String   @unique
+  password       String
+  rating         Int      @default(400)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  gamesAsPlayer1 Game[]   @relation("Player1Games")
+  gamesAsPlayer2 Game[]   @relation("Player2Games")
+  authProvider   Provider @default(email)
+
+  @@map("users")
+}
+
 model Game {
-  id        String   @id @default(cuid())
-  roomID    String   @unique
-  player1id String   
-  player2id String   
-  Winner    String?   
-  Runnerup  String?   
-  moves     Move[]   @relation("GameMoves")
-  createdAt DateTime @default(now())
-  status    State    @default(start)
-  Winnerpoints Int   @default(0)
-  RunnerupPoints Int @default(0)
+  id             String   @id @default(cuid())
+  roomID         String   @unique
+  player1        User     @relation("Player1Games", fields: [player1ID], references: [id])
+  player1ID      String
+  player2        User     @relation("Player2Games", fields: [player2ID], references: [id])
+  player2ID      String
+  winner         String?
+  runnerup       String?
+  moves          Move[]   @relation("GameMoves")
+  createdAt      DateTime @default(now())
+  status         State    @default(start)
+  winnerPoints   Int      @default(0)
+  runnerupPoints Int      @default(0)
+
+  @@map("games")
 }
 
 model Move {
@@ -36,13 +50,28 @@ model Move {
   from      String
   to        String
   time      Int
-  points    Int    @default(0)
+  points    Int      @default(0)
+  promotion Promotion?  // null for normal moves, 'q'|'r'|'b'|'n' for pawn promotions
   createdAt DateTime @default(now())
 
   @@map("moves")
 }
 
-enum State{
+
+enum State {
   start
   finished
+}
+
+enum Provider {
+  google
+  github
+  email
+}
+
+enum Promotion{
+  q
+  r
+  b
+  n
 }

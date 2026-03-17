@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import type { CSSProperties } from "react";
+import { useAuth } from "../lib/auth-context";
 
 export const Route = createFileRoute("/")({
   component: HomePage,
@@ -49,6 +50,8 @@ const themes = [
 ];
 
 function HomePage() {
+  const { status, user, signout } = useAuth();
+
   return (
     <div style={pageStyle}>
       <style>{animations}</style>
@@ -56,6 +59,77 @@ function HomePage() {
       {/* ── Background layers ─────────────────────────────────────────── */}
       <div style={bgGrid} />
       <div style={bgGlow} />
+
+      {/* ── Auth Nav Bar ──────────────────────────────────────────────── */}
+      <div style={{
+        position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
+        padding: "14px 28px",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        background: "rgba(10,10,15,.7)",
+        backdropFilter: "blur(16px)",
+        borderBottom: "1px solid rgba(255,255,255,.05)",
+      }}>
+        <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, color: "#C9A84C", fontSize: "1.05rem", letterSpacing: ".04em" }}>♛ Chess Arena</span>
+        {status === "loading" ? (
+          <div style={{ width: 20, height: 20, border: "2px solid #222", borderTop: "2px solid #C9A84C", borderRadius: "50%", animation: "spin .7s linear infinite" }} />
+        ) : status === "authenticated" && user ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{
+              display: "flex", alignItems: "center", gap: 9,
+              background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.15)",
+              borderRadius: 8, padding: "6px 12px",
+            }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: "50%",
+                background: "linear-gradient(135deg,#C9A84C,#FFE89D)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontWeight: 900, fontSize: ".75rem", color: "#0A0A0F",
+              }}>{user.username[0].toUpperCase()}</div>
+              <div>
+                <div style={{ color: "#C9A84C", fontSize: ".78rem", fontWeight: 700, lineHeight: 1.2 }}>@{user.username}</div>
+                <div style={{ color: "#444", fontSize: ".65rem", lineHeight: 1.2 }}>⚡ {user.rating} ELO</div>
+              </div>
+            </div>
+            <button
+              onClick={() => signout()}
+              style={{
+                padding: "7px 14px", borderRadius: 7,
+                border: "1px solid rgba(255,255,255,.08)",
+                background: "transparent", color: "#555",
+                fontSize: ".78rem", cursor: "pointer",
+                fontFamily: "'Cormorant Garamond', serif",
+                transition: "all .2s",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#FF6B6B"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,107,107,.3)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#555"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.08)"; }}
+            >Sign out</button>
+          </div>
+        ) : (
+          <div style={{ display: "flex", gap: 10 }}>
+            <Link to="/signin" style={{
+              padding: "7px 16px", borderRadius: 7,
+              border: "1px solid rgba(255,255,255,.09)",
+              color: "#888", textDecoration: "none",
+              fontSize: ".82rem", fontFamily: "'Cormorant Garamond', serif",
+              transition: "all .2s",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#C9A84C"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(201,168,76,.3)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#888"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.09)"; }}
+            >Sign in</Link>
+            <Link to="/signup" style={{
+              padding: "7px 16px", borderRadius: 7,
+              background: "linear-gradient(135deg,#C9A84C,#FFE89D)",
+              color: "#0A0A0F", textDecoration: "none",
+              fontSize: ".82rem", fontWeight: 800,
+              fontFamily: "'Playfair Display', serif",
+              transition: "all .2s",
+            }}
+            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
+            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
+            >Join free →</Link>
+          </div>
+        )}
+      </div>
 
       {/* ── Floating decorative pieces ────────────────────────────────── */}
       {["♚", "♛", "♜", "♝", "♞", "♟"].map((p, i) => (

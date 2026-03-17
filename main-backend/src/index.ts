@@ -1,12 +1,14 @@
+import "dotenv/config";
 import { createClient } from "redis";
-import { PrismaClient } from "../generated/prisma/client";
-import { PrismaPg } from "@prisma/adapter-pg";
-const prisma = new PrismaClient({
-  adapter: new PrismaPg({ connectionString: "postgresql://postgres:mypassword@localhost:5432" }),
-});
-let redisClient = createClient({
+import { prisma } from "./db";
+
+// Import routes so the GraphQL server starts alongside the queue processor
+import "./routes";
+
+const redisClient = createClient({
   url: "redis://localhost:6379",
 });
+
 async function initializeRedis() {
   try {
     redisClient.on("error", (err: Error) => {
@@ -22,6 +24,7 @@ async function initializeRedis() {
     console.error("❌ Failed to connect to Redis:", error);
   }
 }
+
 async function processqueue() {
   while (true) {
     try {
@@ -35,22 +38,20 @@ async function processqueue() {
         console.log("Processing data:", data);
 
         if (data.type === "start") {
-          // Create game when players are matched
           console.log(
             `Game started: ${data.roomID} - Player1: ${data.player1Id}, Player2: ${data.player2Id}`,
           );
           await prisma.game.create({
             data: {
               roomID: data.roomID,
-              player1id: data.player1Id,
-              player2id: data.player2Id,
+              player1ID: data.player1Id,
+              player2ID: data.player2Id,
             },
           });
           console.log("Game created in DB");
         } else if (data.type === "move") {
-          // Create move in database
           console.log(
-            `Move made in room ${data.roomID}: ${data.from} -> ${data.to}`,
+            `Move made in room ${data.roomID}: ${data.from} -> ${data.to}${data.promotion ? ` (promotion: ${data.promotion})` : ""}`,
           );
           await prisma.move.create({
             data: {
@@ -61,6 +62,7 @@ async function processqueue() {
               to: data.to,
               time: data.time ?? 0,
               points: data.points ?? 0,
+              promotion: data.promotion ?? null,
             },
           });
           console.log("Move stored in DB");
@@ -72,10 +74,10 @@ async function processqueue() {
             },
             data: {
               status: "finished",
-              Winner: data.winner,
-              Runnerup: data.runnerup,
-              Winnerpoints: data.winnerPoints ?? 0,
-              RunnerupPoints: data.runnerupPoints ?? 0,
+              winner: data.winner,
+              runnerup: data.runnerup,
+              winnerPoints: data.winnerPoints ?? 0,
+              runnerupPoints: data.runnerupPoints ?? 0,
             },
           });
           console.log(
@@ -88,9 +90,11 @@ async function processqueue() {
     }
   }
 }
+
 async function main() {
   await initializeRedis();
-  await processqueue();
+  // Run queue processor in the background (non-blocking)
+  processqueue().catch(console.error);
 }
 
-main();
+main().catch(console.error);

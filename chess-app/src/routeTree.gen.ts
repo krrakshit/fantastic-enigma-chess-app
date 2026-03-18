@@ -9,9 +9,9 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ZenGardenRouteImport } from './routes/zen-garden'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SigninRouteImport } from './routes/signin'
-import { Route as ZenGardenRouteImport } from './routes/zen-garden'
 import { Route as PixelDojoRouteImport } from './routes/pixel-dojo'
 import { Route as ParchmentRouteImport } from './routes/parchment'
 import { Route as ObsidianRouteImport } from './routes/obsidian'
@@ -20,6 +20,11 @@ import { Route as GameRouteImport } from './routes/game'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GameRoomIdRouteImport } from './routes/game.$roomId'
 
+const ZenGardenRoute = ZenGardenRouteImport.update({
+  id: '/zen-garden',
+  path: '/zen-garden',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
@@ -28,11 +33,6 @@ const SignupRoute = SignupRouteImport.update({
 const SigninRoute = SigninRouteImport.update({
   id: '/signin',
   path: '/signin',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ZenGardenRoute = ZenGardenRouteImport.update({
-  id: '/zen-garden',
-  path: '/zen-garden',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PixelDojoRoute = PixelDojoRouteImport.update({
@@ -73,38 +73,38 @@ const GameRoomIdRoute = GameRoomIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/signin': typeof SigninRoute
-  '/signup': typeof SignupRoute
   '/game': typeof GameRouteWithChildren
   '/neon-arena': typeof NeonArenaRoute
   '/obsidian': typeof ObsidianRoute
   '/parchment': typeof ParchmentRoute
   '/pixel-dojo': typeof PixelDojoRoute
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/zen-garden': typeof ZenGardenRoute
   '/game/$roomId': typeof GameRoomIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/signin': typeof SigninRoute
-  '/signup': typeof SignupRoute
   '/game': typeof GameRouteWithChildren
   '/neon-arena': typeof NeonArenaRoute
   '/obsidian': typeof ObsidianRoute
   '/parchment': typeof ParchmentRoute
   '/pixel-dojo': typeof PixelDojoRoute
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/zen-garden': typeof ZenGardenRoute
   '/game/$roomId': typeof GameRoomIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/signin': typeof SigninRoute
-  '/signup': typeof SignupRoute
   '/game': typeof GameRouteWithChildren
   '/neon-arena': typeof NeonArenaRoute
   '/obsidian': typeof ObsidianRoute
   '/parchment': typeof ParchmentRoute
   '/pixel-dojo': typeof PixelDojoRoute
+  '/signin': typeof SigninRoute
+  '/signup': typeof SignupRoute
   '/zen-garden': typeof ZenGardenRoute
   '/game/$roomId': typeof GameRoomIdRoute
 }
@@ -112,55 +112,62 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/signin'
-    | '/signup'
     | '/game'
     | '/neon-arena'
     | '/obsidian'
     | '/parchment'
     | '/pixel-dojo'
+    | '/signin'
+    | '/signup'
     | '/zen-garden'
     | '/game/$roomId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/signin'
-    | '/signup'
     | '/game'
     | '/neon-arena'
     | '/obsidian'
     | '/parchment'
     | '/pixel-dojo'
+    | '/signin'
+    | '/signup'
     | '/zen-garden'
     | '/game/$roomId'
   id:
     | '__root__'
     | '/'
-    | '/signin'
-    | '/signup'
     | '/game'
     | '/neon-arena'
     | '/obsidian'
     | '/parchment'
     | '/pixel-dojo'
+    | '/signin'
+    | '/signup'
     | '/zen-garden'
     | '/game/$roomId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  SigninRoute: typeof SigninRoute
-  SignupRoute: typeof SignupRoute
   GameRoute: typeof GameRouteWithChildren
   NeonArenaRoute: typeof NeonArenaRoute
   ObsidianRoute: typeof ObsidianRoute
   ParchmentRoute: typeof ParchmentRoute
   PixelDojoRoute: typeof PixelDojoRoute
+  SigninRoute: typeof SigninRoute
+  SignupRoute: typeof SignupRoute
   ZenGardenRoute: typeof ZenGardenRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/zen-garden': {
+      id: '/zen-garden'
+      path: '/zen-garden'
+      fullPath: '/zen-garden'
+      preLoaderRoute: typeof ZenGardenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/signup': {
       id: '/signup'
       path: '/signup'
@@ -173,13 +180,6 @@ declare module '@tanstack/react-router' {
       path: '/signin'
       fullPath: '/signin'
       preLoaderRoute: typeof SigninRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/zen-garden': {
-      id: '/zen-garden'
-      path: '/zen-garden'
-      fullPath: '/zen-garden'
-      preLoaderRoute: typeof ZenGardenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pixel-dojo': {
@@ -246,13 +246,13 @@ const GameRouteWithChildren = GameRoute._addFileChildren(GameRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  SigninRoute: SigninRoute,
-  SignupRoute: SignupRoute,
   GameRoute: GameRouteWithChildren,
   NeonArenaRoute: NeonArenaRoute,
   ObsidianRoute: ObsidianRoute,
   ParchmentRoute: ParchmentRoute,
   PixelDojoRoute: PixelDojoRoute,
+  SigninRoute: SigninRoute,
+  SignupRoute: SignupRoute,
   ZenGardenRoute: ZenGardenRoute,
 }
 export const routeTree = rootRouteImport

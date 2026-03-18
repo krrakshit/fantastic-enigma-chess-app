@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { ChessBoard } from "../components/ChessBoard";
-import { useChessWebSocket, type GameResult } from "../lib/useChessWebSocket";
+import { useChessWebSocket, INITIAL_TIME_MS, type GameResult, type ChatMessage } from "../lib/useChessWebSocket";
 import { PieceSVG } from "../lib/piece-svgs";
 import type { Move } from "chess.js";
 import { useWebSocket } from "../lib/websocket-context";
@@ -23,20 +23,36 @@ function shortId(id: string) {
   return id.length > 16 ? `${id.slice(0, 8)}…` : id;
 }
 
+function formatTime(ms: number): string {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 // ── Move History ──────────────────────────────────────────────────────────────
 
-function MoveHistory({ moves }: { moves: Move[] }) {
+function formatMoveTime(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  const s = (ms / 1000).toFixed(1);
+  return `${s}s`;
+}
+
+function MoveHistory({ moves, moveTimes }: { moves: Move[]; moveTimes: number[] }) {
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [moves.length]);
 
-  type Pair = { white?: Move; black?: Move; num: number };
+  type Pair = { white?: Move; black?: Move; whiteTime?: number; blackTime?: number; num: number };
   const pairs: Pair[] = [];
   moves.forEach((m, i) => {
-    if (i % 2 === 0) pairs.push({ white: m, num: Math.floor(i / 2) + 1 });
-    else pairs[pairs.length - 1].black = m;
+    if (i % 2 === 0) pairs.push({ white: m, whiteTime: moveTimes[i], num: Math.floor(i / 2) + 1 });
+    else {
+      pairs[pairs.length - 1].black = m;
+      pairs[pairs.length - 1].blackTime = moveTimes[i];
+    }
   });
 
   return (
@@ -55,19 +71,126 @@ function MoveHistory({ moves }: { moves: Move[] }) {
             flex: 1, padding: "3px 8px", borderRadius: 4, fontSize: ".82rem",
             fontFamily: "'Courier New', monospace", fontWeight: 600,
             background: "rgba(255,255,255,.04)", color: "#D4C49A",
+            display: "flex", justifyContent: "space-between", alignItems: "center",
           }}>
-            {p.white?.san ?? ""}
+            <span>{p.white?.san ?? ""}</span>
+            {p.whiteTime != null && (
+              <span style={{ fontSize: ".6rem", color: "#666", fontWeight: 400 }}>
+                {formatMoveTime(p.whiteTime)}
+              </span>
+            )}
           </span>
           <span style={{
             flex: 1, padding: "3px 8px", borderRadius: 4, fontSize: ".82rem",
             fontFamily: "'Courier New', monospace",
             background: p.black ? "rgba(255,255,255,.02)" : "transparent", color: "#A09880",
+            display: "flex", justifyContent: "space-between", alignItems: "center",
           }}>
-            {p.black?.san ?? ""}
+            <span>{p.black?.san ?? ""}</span>
+            {p.blackTime != null && (
+              <span style={{ fontSize: ".6rem", color: "#666", fontWeight: 400 }}>
+                {formatMoveTime(p.blackTime)}
+              </span>
+            )}
           </span>
         </div>
       ))}
       <div ref={endRef} />
+    </div>
+  );
+}
+
+// ── Chat Panel ────────────────────────────────────────────────────────────────
+
+function ChatPanel({
+  messages,
+  onSend,
+  myId,
+}: {
+  messages: ChatMessage[];
+  onSend: (msg: string) => void;
+  myId: string;
+}) {
+  const endRef = useRef<HTMLDivElement>(null);
+  const [draft, setDraft] = useState("");
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages.length]);
+
+  const A = "#C9A84C";
+
+  return (
+    <div style={{
+      background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.06)",
+      borderRadius: 12, padding: 12, display: "flex", flexDirection: "column",
+      minHeight: 160, maxHeight: 220,
+    }}>
+      <div style={{ fontSize: ".62rem", color: "#444", fontWeight: 700, letterSpacing: ".1em", marginBottom: 6 }}>
+        CHAT
+      </div>
+      <div style={{ height: 1, background: "rgba(255,255,255,.05)", marginBottom: 6 }} />
+      <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
+        {messages.length === 0 && (
+          <p style={{ textAlign: "center", color: "#333", fontSize: ".72rem", fontStyle: "italic", marginTop: 8 }}>
+            No messages yet
+          </p>
+        )}
+        {messages.map((m, i) => {
+          const isMe = m.senderID === myId;
+          return (
+            <div
+              key={i}
+              style={{
+                alignSelf: isMe ? "flex-end" : "flex-start",
+                maxWidth: "80%",
+                padding: "5px 10px", borderRadius: 8,
+                background: isMe ? "rgba(201,168,76,.12)" : "rgba(255,255,255,.05)",
+                border: `1px solid ${isMe ? "rgba(201,168,76,.25)" : "rgba(255,255,255,.08)"}`,
+              }}
+            >
+              <div style={{ fontSize: ".6rem", color: isMe ? A : "#555", fontWeight: 600, marginBottom: 1 }}>
+                {isMe ? "You" : shortId(m.senderID)}
+              </div>
+              <div style={{ fontSize: ".78rem", color: isMe ? "#E8D5A0" : "#999", wordBreak: "break-word" }}>
+                {m.message}
+              </div>
+            </div>
+          );
+        })}
+        <div ref={endRef} />
+      </div>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (!draft.trim()) return;
+          onSend(draft);
+          setDraft("");
+        }}
+        style={{ display: "flex", gap: 6 }}
+      >
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Type a message…"
+          maxLength={200}
+          style={{
+            flex: 1, padding: "6px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.1)",
+            background: "rgba(255,255,255,.03)", color: "#ccc", fontSize: ".78rem",
+            outline: "none", fontFamily: "inherit",
+          }}
+        />
+        <button
+          type="submit"
+          style={{
+            padding: "6px 12px", borderRadius: 6, border: `1px solid ${A}44`,
+            background: "rgba(201,168,76,.1)", color: A, fontSize: ".78rem",
+            fontWeight: 700, cursor: "pointer",
+          }}
+        >
+          Send
+        </button>
+      </form>
     </div>
   );
 }
@@ -81,6 +204,7 @@ function PlayerStrip({
   isActive,
   captures,
   points,
+  timeMs,
 }: {
   label: string;
   id: string;
@@ -88,8 +212,10 @@ function PlayerStrip({
   isActive: boolean;
   captures: { type: string; color: string }[];
   points: number;
+  timeMs: number;
 }) {
   const A = "#C9A84C";
+  const isLow = timeMs < 60_000; // under 1 minute
   return (
     <div style={{
       padding: "12px 16px", borderRadius: 10,
@@ -122,6 +248,18 @@ function PlayerStrip({
         minWidth: 28, textAlign: "center", flexShrink: 0,
       }}>
         {points}pt{points !== 1 ? "s" : ""}
+      </div>
+      {/* Timer */}
+      <div style={{
+        padding: "4px 10px", borderRadius: 6, fontFamily: "monospace",
+        fontSize: ".85rem", fontWeight: 700, flexShrink: 0, minWidth: 52, textAlign: "center",
+        background: isActive
+          ? (isLow ? "rgba(255,68,68,.15)" : "rgba(201,168,76,.12)")
+          : "rgba(255,255,255,.04)",
+        border: `1px solid ${isActive ? (isLow ? "rgba(255,68,68,.4)" : "rgba(201,168,76,.3)") : "rgba(255,255,255,.08)"}`,
+        color: isActive ? (isLow ? "#FF6B6B" : A) : "#555",
+      }}>
+        {formatTime(timeMs)}
       </div>
       {captures.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
@@ -469,6 +607,7 @@ function GameRoom() {
               isActive={game.turn === topColor}
               captures={topCaptures}
               points={topIsMe ? game.myPoints : game.opponentPoints}
+              timeMs={topColor === "w" ? game.whiteTime : game.blackTime}
             />
           </div>
 
@@ -489,6 +628,7 @@ function GameRoom() {
               isActive={game.turn === bottomColor}
               captures={bottomCaptures}
               points={topIsMe ? game.opponentPoints : game.myPoints}
+              timeMs={bottomColor === "w" ? game.whiteTime : game.blackTime}
             />
           </div>
         </div>
@@ -552,8 +692,11 @@ function GameRoom() {
               <div style={{ flex:1, fontSize:".62rem", color:"#444", fontWeight:700, letterSpacing:".1em", paddingLeft:8 }}>BLACK</div>
             </div>
             <div style={{ height:1, background:"rgba(255,255,255,.05)", marginBottom:8 }} />
-            <MoveHistory moves={game.moveHistory} />
+            <MoveHistory moves={game.moveHistory} moveTimes={game.moveTimes} />
           </div>
+
+          {/* Chat */}
+          <ChatPanel messages={game.chatMessages} onSend={game.sendChat} myId={myId} />
 
           {/* Footer: my color + move count + new game */}
           <div style={{ padding:"14px 16px", background:"rgba(255,255,255,.02)", border:"1px solid rgba(255,255,255,.06)", borderRadius:10, display:"flex", flexDirection:"column", gap:10 }}>

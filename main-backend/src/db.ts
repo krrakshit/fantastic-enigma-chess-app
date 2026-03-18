@@ -5,6 +5,6 @@ export const prisma = new PrismaClient({
   adapter: new PrismaPg({
     connectionString:
       process.env.DATABASE_URL ??
-      "postgresql://postgres:mypassword@localhost:5432",
+      "postgresql://postgres:4542@localhost:5432",
   }),
 });

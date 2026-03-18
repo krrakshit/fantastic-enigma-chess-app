@@ -18,10 +18,15 @@ async function initializeRedis() {
     console.error("❌ Failed to connect to Redis:", error);
   }
 }
-// await initializeRedis();
+ await initializeRedis();
 
 // --- Types ---
-type Type = "start" | "join" | "move" | GameOver;
+type Type = "start" | "join" | "move" | GameOver | Chat;
+type Chat = {
+  roomID : string,
+  message : string,
+  senderID : string
+}
 type GameOver = {
   Winner: string;
   Runnerup: string;
@@ -252,6 +257,39 @@ const app = new Elysia()
             }
           } catch (error) {
             sendMessage(ws, "error", { message: "Invalid move" });
+          }
+        }
+
+        // ── Chat message relay ──────────────────────────────────────────
+        if (
+          typeof message.content === "object" &&
+          message.content !== null &&
+          "message" in (message.content as object)
+        ) {
+          const chat = message.content as Chat;
+          const room = activeRooms.get(chat.roomID);
+          if (!room) {
+            sendMessage(ws, "error", { message: "Room not found" });
+            return;
+          }
+
+          const isPlayer1 = room.player1Id === chat.senderID;
+          const isPlayer2 = room.player2Id === chat.senderID;
+          if (!isPlayer1 && !isPlayer2) {
+            sendMessage(ws, "error", { message: "Player not in room" });
+            return;
+          }
+
+          // Relay to the opponent
+          const opponentSocket = isPlayer1
+            ? room.player2Socket
+            : room.player1Socket;
+          if (opponentSocket) {
+            sendMessage(opponentSocket, "chat", {
+              roomID: chat.roomID,
+              senderID: chat.senderID,
+              message: chat.message,
+            });
           }
         }
 

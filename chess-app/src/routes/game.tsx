@@ -6,6 +6,7 @@ import {
 } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useWebSocket } from "../lib/websocket-context";
+import { useAuth } from "../lib/auth-context";
 
 export const Route = createFileRoute("/game")({
   component: GameLobby,
@@ -31,12 +32,12 @@ function GameLobby() {
 
   // Global persistent WebSocket — shared with the game room
   const { connect, send, addListener, status } = useWebSocket();
+  const { user } = useAuth();
 
-  // Generate a stable player ID once on mount
-  const [playerId] = useState(
-    () => "player_" + Math.random().toString(36).substring(2, 11)
-  );
+  // Use the authenticated user's username as the player ID
+  const playerId = user?.username ?? "";
   const playerIdRef = useRef(playerId);
+  playerIdRef.current = playerId;
 
   const [isWaiting, setIsWaiting] = useState(false);
   const [error, setError] = useState("");
@@ -110,6 +111,10 @@ function GameLobby() {
   const handleFindGame = () => {
     if (!wsReady) {
       setError("Not connected to server yet…");
+      return;
+    }
+    if (!playerId) {
+      setError("You must be signed in to play.");
       return;
     }
     setError("");

@@ -68,6 +68,14 @@ async function processqueue() {
           console.log("Move stored in DB");
         } else if (data.type === "game_over") {
           console.log("Game end for room id: " + data.roomID);
+          await prisma.user.update({
+            where: { username: data.winner },
+            data: { rating: { increment: 10 } },
+          });
+          await prisma.user.update({
+            where: { username: data.runnerup },
+            data: { rating: { decrement: 10 } },
+          });
           await prisma.game.update({
             where: {
               roomID: data.roomID,

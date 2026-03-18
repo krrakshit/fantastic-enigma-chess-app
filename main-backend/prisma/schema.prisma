@@ -26,9 +26,9 @@ model User {
 model Game {
   id             String   @id @default(cuid())
   roomID         String   @unique
-  player1        User     @relation("Player1Games", fields: [player1ID], references: [id])
+  player1        User     @relation("Player1Games", fields: [player1ID], references: [username])
   player1ID      String
-  player2        User     @relation("Player2Games", fields: [player2ID], references: [id])
+  player2        User     @relation("Player2Games", fields: [player2ID], references: [username])
   player2ID      String
   winner         String?
   runnerup       String?

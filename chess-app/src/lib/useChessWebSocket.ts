@@ -91,6 +91,9 @@ export interface GameResult {
   durationSeconds: number;
 }
 
+/** Initial time per player in milliseconds (10 minutes) */
+export const INITIAL_TIME_MS = 10 * 60 * 1000;
+
 export interface MultiplayerGameState extends ChessGameState {
   /** The color assigned to the local player */
   myColor: PieceColor | null;
@@ -109,6 +112,22 @@ export interface MultiplayerGameState extends ChessGameState {
   gameResult: GameResult | null;
   /** ISO timestamp of the first move (null before game starts) */
   gameStartedAt: string | null;
+  /** Remaining time for white in ms */
+  whiteTime: number;
+  /** Remaining time for black in ms */
+  blackTime: number;
+  /** Time taken per move in ms (index matches moveHistory) */
+  moveTimes: number[];
+  /** Chat messages exchanged during the game */
+  chatMessages: ChatMessage[];
+  /** Send a chat message to the opponent */
+  sendChat: (message: string) => void;
+}
+
+export interface ChatMessage {
+  senderID: string;
+  message: string;
+  timestamp: number;
 }
 
 export interface GameRoomData {
@@ -153,7 +172,8 @@ export function useChessWebSocket(
   });
   const [, forceUpdate] = useState(0);
   const refresh = useCallback(() => forceUpdate((n) => n + 1), []);
-  const moveStartTime = useRef<number>(Date.now());
+  // moveStartTime is null until the first move — prevents huge initial elapsed values
+  const moveStartTime = useRef<number | null>(null);
   const gameStartTime = useRef<number | null>(null); // set on first move
 
   // Restore point totals from localStorage if available
@@ -178,6 +198,87 @@ export function useChessWebSocket(
   const [opponentPoints, setOpponentPoints] = useState<number>(_initPoints.opp);
   const [gameResult, setGameResult] = useState<GameResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // ── Move times (ms per move, index matches moveHistory) ───────────────
+  const _getSavedMoveTimes = () => {
+    if (roomData) {
+      try {
+        const raw = localStorage.getItem("chessGameState");
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (saved.roomId === roomData.roomId && Array.isArray(saved.moveTimes)) {
+            return saved.moveTimes as number[];
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    return [] as number[];
+  };
+  const moveTimesRef = useRef<number[]>(_getSavedMoveTimes());
+  const [moveTimes, setMoveTimes] = useState<number[]>(moveTimesRef.current);
+
+  // ── Chat messages ─────────────────────────────────────────────────────
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+
+  // ── Chess clock state ─────────────────────────────────────────────────
+  const _getSavedTimes = () => {
+    if (roomData) {
+      try {
+        const raw = localStorage.getItem("chessGameState");
+        if (raw) {
+          const saved = JSON.parse(raw);
+          if (saved.roomId === roomData.roomId) {
+            return {
+              w: saved.whiteTime ?? INITIAL_TIME_MS,
+              b: saved.blackTime ?? INITIAL_TIME_MS,
+            };
+          }
+        }
+      } catch { /* ignore */ }
+    }
+    return { w: INITIAL_TIME_MS, b: INITIAL_TIME_MS };
+  };
+  const _initTimes = _getSavedTimes();
+  const whiteTimeRef = useRef<number>(_initTimes.w);
+  const blackTimeRef = useRef<number>(_initTimes.b);
+  const [whiteTime, setWhiteTime] = useState<number>(_initTimes.w);
+  const [blackTime, setBlackTime] = useState<number>(_initTimes.b);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastTickRef = useRef<number>(Date.now());
+
+  // Start / stop the countdown interval based on whose turn it is
+  // Timer only runs after the FIRST move (white plays) so it begins on black's first turn
+  const moveCount = chess.history().length;
+  const gameHasStarted = moveCount > 0;
+  useEffect(() => {
+    // Don't tick before any move is made or after the game ends
+    const isOver = chess.isCheckmate() || chess.isStalemate() || chess.isDraw();
+    if (!gameHasStarted || isOver) {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
+    }
+
+    lastTickRef.current = Date.now();
+    timerRef.current = setInterval(() => {
+      const now = Date.now();
+      const delta = now - lastTickRef.current;
+      lastTickRef.current = now;
+
+      if (chess.turn() === "w") {
+        whiteTimeRef.current = Math.max(0, whiteTimeRef.current - delta);
+        setWhiteTime(whiteTimeRef.current);
+      } else {
+        blackTimeRef.current = Math.max(0, blackTimeRef.current - delta);
+        setBlackTime(blackTimeRef.current);
+      }
+    }, 100);
+
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+    // Re-run whenever the move count changes (turn switches) or game ends
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moveCount, chess.isCheckmate(), chess.isStalemate(), chess.isDraw()]);
 
   // Derive player color from room data
   const myColor: PieceColor | null = roomData
@@ -224,6 +325,11 @@ export function useChessWebSocket(
           // Point snapshots
           myPoints: myPointsRef.current,
           opponentPoints: opponentPointsRef.current,
+          // Clock snapshots
+          whiteTime: whiteTimeRef.current,
+          blackTime: blackTimeRef.current,
+          // Move times
+          moveTimes: moveTimesRef.current,
           // Timestamps
           savedAt: new Date().toISOString(),
           gameStartedAt: gameStartTime.current
@@ -269,6 +375,11 @@ export function useChessWebSocket(
             opponentPointsRef.current += msg.move.points;
             setOpponentPoints(opponentPointsRef.current);
           }
+          // Record opponent's move time
+          moveTimesRef.current = [...moveTimesRef.current, msg.move.time ?? 0];
+          setMoveTimes(moveTimesRef.current);
+          // Reset move start time so our next move's elapsed is relative
+          moveStartTime.current = Date.now();
           // Persist state after opponent move
           persistGameState(chess);
           refresh();
@@ -313,6 +424,11 @@ export function useChessWebSocket(
         } catch {
           /* ignore */
         }
+      } else if (msg.type === "chat") {
+        setChatMessages((prev) => [
+          ...prev,
+          { senderID: msg.senderID, message: msg.message, timestamp: Date.now() },
+        ]);
       } else if (msg.type === "error") {
         setErrorMessage(msg.message ?? "Server error");
         // Auto-clear after 3 s
@@ -337,7 +453,10 @@ export function useChessWebSocket(
           if (roomData) {
             const now = Date.now();
             if (gameStartTime.current === null) gameStartTime.current = now;
-            const elapsed = now - moveStartTime.current;
+            // First move: elapsed is 0 (no prior reference point)
+            const elapsed = moveStartTime.current !== null
+              ? now - moveStartTime.current
+              : 0;
             moveStartTime.current = now;
             const points = move.captured
               ? (PIECE_VALUES[move.captured] ?? 0)
@@ -346,6 +465,9 @@ export function useChessWebSocket(
               myPointsRef.current += points;
               setMyPoints(myPointsRef.current);
             }
+            // Record my move time
+            moveTimesRef.current = [...moveTimesRef.current, elapsed];
+            setMoveTimes(moveTimesRef.current);
             // Persist game state after our own move
             persistGameState(chess);
             send({
@@ -383,6 +505,27 @@ export function useChessWebSocket(
     (square: Square): Square[] =>
       chess.moves({ square, verbose: true }).map((m) => m.to),
     [chess],
+  );
+
+  // ── sendChat ─────────────────────────────────────────────────────────
+  const sendChat = useCallback(
+    (message: string) => {
+      if (!roomData || !message.trim()) return;
+      const trimmed = message.trim();
+      send({
+        content: {
+          roomID: roomData.roomId,
+          senderID: roomData.currentPlayerId,
+          message: trimmed,
+        },
+        uid: roomData.currentPlayerId,
+      });
+      setChatMessages((prev) => [
+        ...prev,
+        { senderID: roomData.currentPlayerId, message: trimmed, timestamp: Date.now() },
+      ]);
+    },
+    [roomData, send],
   );
 
   // ── undo / reset (disabled in multiplayer) ─────────────────────────────
@@ -434,5 +577,10 @@ export function useChessWebSocket(
     gameStartedAt: gameStartTime.current
       ? new Date(gameStartTime.current).toISOString()
       : null,
+    whiteTime,
+    blackTime,
+    moveTimes,
+    chatMessages,
+    sendChat,
   };
 }

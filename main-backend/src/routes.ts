@@ -38,7 +38,7 @@ interface TokenBase {
   email: string;
 }
 
-type AccessPayload  = TokenBase & { type: "access" };
+type AccessPayload = TokenBase & { type: "access" };
 type RefreshPayload = TokenBase & { type: "refresh" };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -77,7 +77,7 @@ function verifyRefresh(token: string): RefreshPayload {
 function setAccessCookie(res: Response, token: string) {
   res.cookie(ACCESS_COOKIE, token, {
     ...COOKIE_BASE,
-    maxAge: 15 * 60 * 1000, // 15 min in ms
+    maxAge: 15 * 60 * 1000,
   });
 }
 
@@ -85,7 +85,7 @@ function setAccessCookie(res: Response, token: string) {
 function setRefreshCookie(res: Response, token: string) {
   res.cookie(REFRESH_COOKIE, token, {
     ...COOKIE_BASE,
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in ms
+    maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 }
 
@@ -101,11 +101,29 @@ function issueTokens(res: Response, data: TokenBase) {
   setRefreshCookie(res, signRefresh(data));
 }
 
+const ANALYSIS_BACKEND_URL = process.env.ANALYSIS_BACKEND_URL ?? "http://localhost:7000";
+
 // ─────────────────────────────────────────────────────────────────────────────
 // GraphQL Schema
 // ─────────────────────────────────────────────────────────────────────────────
 
 const typeDefs = gql`
+  # ── Enums ──────────────────────────────────────────────────────────────────
+
+  enum GameState {
+    start
+    finished
+  }
+
+  enum Promotion {
+    q
+    r
+    b
+    n
+  }
+
+  # ── User ───────────────────────────────────────────────────────────────────
+
   type User {
     id: String!
     name: String!
@@ -114,6 +132,71 @@ const typeDefs = gql`
     rating: Int!
     createdAt: String!
   }
+
+  # ── Move ───────────────────────────────────────────────────────────────────
+
+  type Move {
+    id: String!
+    roomID: String!
+    playerID: String!
+    piece: String!
+    from: String!
+    to: String!
+    time: Int!
+    points: Int!
+    promotion: Promotion       # null for normal moves
+    createdAt: String!
+  }
+
+  # ── Game player summary (subset of User) ───────────────────────────────────
+
+  type GamePlayer {
+    username: String!
+    name: String!
+    rating: Int!
+  }
+
+  # ── Game ───────────────────────────────────────────────────────────────────
+
+  type Game {
+    id: String!
+    roomID: String!
+    player1ID: String!
+    player2ID: String!
+    player1: GamePlayer!
+    player2: GamePlayer!
+    winner: String           # null while in progress
+    runnerup: String         # null while in progress
+    winnerPoints: Int!
+    runnerupPoints: Int!
+    status: GameState!
+    moves: [Move!]!
+    createdAt: String!
+  }
+
+  # ── Analysis types ───────────────────────────────────────────────────────
+
+  type MoveAnalysis {
+    moveNumber: Int!
+    move: String!
+    color: String!
+    score: Int
+    mate: Int
+    bestMove: String
+    classification: String!
+  }
+
+  type AnalysisResult {
+    roomID: String!
+    player1: GamePlayer!
+    player2: GamePlayer!
+    winner: String
+    runnerup: String
+    status: GameState!
+    analysis: [MoveAnalysis!]!
+  }
+
+  # ── Auth payloads ───────────────────────────────────────────────────────────
 
   """
   Both access_token and refresh_token are set as HttpOnly cookies.
@@ -144,6 +227,8 @@ const typeDefs = gql`
     message: String!
   }
 
+  # ── Queries ─────────────────────────────────────────────────────────────────
+
   type Query {
     """
     Returns the currently authenticated user by verifying the access_token cookie.
@@ -156,7 +241,21 @@ const typeDefs = gql`
     Validates format and checks uniqueness in the database.
     """
     checkUsernameAvailability(username: String!): UsernameAvailability!
+
+    """
+    Returns all games played by the given username, newest first.
+    Includes full move list and both players' profiles.
+    """
+    getAllGamesPlayedByUser(username: String!): [Game!]!
+
+    """
+    Analyse a finished game. Validates game exists, is finished, and the user
+    actually played in it. Then runs Stockfish engine analysis on every move.
+    """
+    analysegame(username: String!, roomId: String!): AnalysisResult!
   }
+
+  # ── Mutations ───────────────────────────────────────────────────────────────
 
   type Mutation {
     """
@@ -234,7 +333,6 @@ const resolvers = {
 
     // ── checkUsernameAvailability ─────────────────────────────────────────────
     checkUsernameAvailability: async (_: unknown, { username }: { username: string }) => {
-      // Format rules (matching Instagram's)
       if (username.length < 3)
         return { username, available: false, message: "Must be at least 3 characters." };
       if (username.length > 30)
@@ -260,10 +358,111 @@ const resolvers = {
         };
       }
 
+      return { username, available: true, message: `"${username}" is available! ✓` };
+    },
+
+    // ── getAllGamesPlayedByUser ────────────────────────────────────────────────
+    getAllGamesPlayedByUser: async (_: unknown, { username }: { username: string }) => {
+      const games = await prisma.game.findMany({
+        where: {
+          OR: [
+            { player1ID: username },
+            { player2ID: username },
+          ],
+        },
+        include: {
+          moves: {
+            orderBy: { createdAt: "asc" },
+          },
+          player1: {
+            select: { username: true, name: true, rating: true },
+          },
+          player2: {
+            select: { username: true, name: true, rating: true },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+      console.log(games[4].moves[0]);
+      // Serialize DateTime fields to ISO strings
+      return games.map((game) => ({
+        ...game,
+        createdAt: game.createdAt.toISOString(),
+        moves: game.moves.map((move) => ({
+          ...move,
+          createdAt: move.createdAt.toISOString(),
+          // Prisma returns null for optional fields — GraphQL null is fine here
+          promotion: move.promotion ?? null,
+        })),
+      }));
+    },
+
+    // ── analysegame ─────────────────────────────────────────────────────────
+    analysegame: async (
+      _: unknown,
+      { username, roomId }: { username: string; roomId: string },
+    ) => {
+      // 1. Fetch the game with moves and players
+      const game = await prisma.game.findUnique({
+        where: { roomID: roomId },
+        include: {
+          moves: { orderBy: { createdAt: "asc" } },
+          player1: { select: { username: true, name: true, rating: true } },
+          player2: { select: { username: true, name: true, rating: true } },
+        },
+      });
+
+      if (!game) throw new Error(`Game with roomId "${roomId}" not found.`);
+
+      // 2. Check game is finished
+      if (game.status !== "finished") {
+        throw new Error("Analysis is only available for finished games.");
+      }
+
+      // 3. Verify the user actually played in this game
+      if (game.player1ID !== username && game.player2ID !== username) {
+        throw new Error("You did not participate in this game.");
+      }
+
+      // 4. Convert moves to UCI format (from+to+promotion)
+      const uciMoves = game.moves.map((m) => {
+        const base = m.from + m.to;
+        return m.promotion ? base + m.promotion : base;
+      });
+
+      // 5. Call the analysis microservice
+      const response = await fetch(`${ANALYSIS_BACKEND_URL}/analyse`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ moves: uciMoves, depth: 15 }),
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Analysis service error: ${err}`);
+      }
+
+      const { analysis } = (await response.json()) as {
+        analysis: Array<{
+          moveNumber: number;
+          move: string;
+          color: string;
+          score: number | null;
+          mate: number | null;
+          bestMove: string | null;
+          classification: string;
+        }>;
+      };
+
+      // 6. Return combined result
       return {
-        username,
-        available: true,
-        message: `"${username}" is available! ✓`,
+        roomID: game.roomID,
+        player1: game.player1,
+        player2: game.player2,
+        winner: game.winner,
+        runnerup: game.runnerup,
+        status: game.status,
+        analysis,
       };
     },
   },
@@ -280,7 +479,7 @@ const resolvers = {
       if (password.length < 6) throw new Error("Password must be at least 6 characters.");
 
       const normalizedUsername = username.toLowerCase();
-      const normalizedEmail    = email.toLowerCase();
+      const normalizedEmail = email.toLowerCase();
 
       const existing = await prisma.user.findFirst({
         where: { OR: [{ username: normalizedUsername }, { email: normalizedEmail }] },
@@ -328,13 +527,6 @@ const resolvers = {
     },
 
     // ── refreshToken ──────────────────────────────────────────────────────────
-    /**
-     * Stateless refresh:
-     *  1. Read refresh_token cookie and verify its JWT signature + expiry
-     *  2. If valid → re-issue both tokens (rotation)
-     *  3. If invalid/expired → clear cookies, return ok=false
-     *  No DB call — the JWT signature IS the proof of authenticity.
-     */
     refreshToken: async (_: unknown, __: unknown, ctx: GqlContext) => {
       const raw: string | undefined = ctx.req.cookies?.[REFRESH_COOKIE];
       if (!raw) {
@@ -345,14 +537,12 @@ const resolvers = {
       try {
         const payload = verifyRefresh(raw);
 
-        // Re-issue both tokens (rotates refresh token)
         issueTokens(ctx.res, {
           sub: payload.sub,
           username: payload.username,
           email: payload.email,
         });
 
-        // Optionally fetch fresh user data from DB to pick up rating changes etc.
         const user = await prisma.user.findUnique({
           where: { id: payload.sub },
           select: { id: true, name: true, username: true, email: true, rating: true, createdAt: true },
@@ -363,17 +553,12 @@ const resolvers = {
           user: user ? { ...user, createdAt: user.createdAt.toISOString() } : null,
         };
       } catch {
-        // JWT expired or tampered
         clearAuthCookies(ctx.res);
         return { ok: false, user: null };
       }
     },
 
     // ── signout ───────────────────────────────────────────────────────────────
-    /**
-     * Stateless signout — just clears both cookies.
-     * No DB call needed since tokens aren't stored server-side.
-     */
     signout: (_: unknown, __: unknown, ctx: GqlContext) => {
       clearAuthCookies(ctx.res);
       return { success: true, message: "Signed out successfully." };
@@ -403,7 +588,6 @@ async function startServer() {
     app: app as any,
     path: "/graphql",
     cors: {
-      // Allow credentials (cookies) from the Vite dev server
       origin: [
         "http://localhost:5173",
         "http://localhost:5174",

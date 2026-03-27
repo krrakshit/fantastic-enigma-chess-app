@@ -196,6 +196,21 @@ const typeDefs = gql`
     analysis: [MoveAnalysis!]!
   }
 
+  # ── Evaluate position types ─────────────────────────────────────────────────
+
+  type EngineLine {
+    rank: Int!
+    score: Int
+    mate: Int
+    moves: [String!]!
+    bestMove: String
+  }
+
+  type EvaluationResult {
+    lines: [EngineLine!]!
+    bestMove: String
+  }
+
   # ── Auth payloads ───────────────────────────────────────────────────────────
 
   """
@@ -253,6 +268,12 @@ const typeDefs = gql`
     actually played in it. Then runs Stockfish engine analysis on every move.
     """
     analysegame(username: String!, roomId: String!): AnalysisResult!
+
+    """
+    Evaluate a position given a sequence of UCI moves from startpos.
+    Returns the engine's top N lines with scores — used for "what-if" exploration.
+    """
+    evaluatePosition(moves: [String!]!, depth: Int, lines: Int): EvaluationResult!
   }
 
   # ── Mutations ───────────────────────────────────────────────────────────────
@@ -423,13 +444,43 @@ const resolvers = {
         throw new Error("You did not participate in this game.");
       }
 
-      // 4. Convert moves to UCI format (from+to+promotion)
+      // 4. Check if analysis is already cached in DB
+      const cachedAnalysis = await prisma.gameAnalysis.findUnique({
+        where: { roomID: roomId },
+        include: {
+          moves: { orderBy: { moveNumber: "asc" } },
+        },
+      });
+
+      if (cachedAnalysis) {
+        console.log(`📦 Returning cached analysis for room ${roomId}`);
+        return {
+          roomID: game.roomID,
+          player1: game.player1,
+          player2: game.player2,
+          winner: game.winner,
+          runnerup: game.runnerup,
+          status: game.status,
+          analysis: cachedAnalysis.moves.map((m) => ({
+            moveNumber: m.moveNumber,
+            move: m.move,
+            color: m.color,
+            score: m.score,
+            mate: m.mate,
+            bestMove: m.bestMove,
+            classification: m.classification,
+          })),
+        };
+      }
+
+      // 5. Convert moves to UCI format (from+to+promotion)
       const uciMoves = game.moves.map((m) => {
         const base = m.from + m.to;
         return m.promotion ? base + m.promotion : base;
       });
 
-      // 5. Call the analysis microservice
+      // 6. Call the analysis microservice
+      console.log(`🔬 Running Stockfish analysis for room ${roomId} (${uciMoves.length} moves)...`);
       const response = await fetch(`${ANALYSIS_BACKEND_URL}/analyse`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -453,7 +504,31 @@ const resolvers = {
         }>;
       };
 
-      // 6. Return combined result
+      // 7. Save analysis to DB for caching
+      try {
+        await prisma.gameAnalysis.create({
+          data: {
+            roomID: roomId,
+            moves: {
+              create: analysis.map((m) => ({
+                moveNumber: m.moveNumber,
+                move: m.move,
+                color: m.color,
+                score: m.score,
+                mate: m.mate,
+                bestMove: m.bestMove,
+                classification: m.classification,
+              })),
+            },
+          },
+        });
+        console.log(`💾 Analysis cached for room ${roomId}`);
+      } catch (saveErr) {
+        console.error(`⚠ Failed to cache analysis for room ${roomId}:`, saveErr);
+        // Non-fatal — still return the result
+      }
+
+      // 8. Return combined result
       return {
         roomID: game.roomID,
         player1: game.player1,
@@ -462,6 +537,34 @@ const resolvers = {
         runnerup: game.runnerup,
         status: game.status,
         analysis,
+      };
+    },
+
+    // ── evaluatePosition ──────────────────────────────────────────────────────
+    evaluatePosition: async (
+      _: unknown,
+      { moves, depth = 15, lines = 3 }: { moves: string[]; depth?: number; lines?: number },
+    ) => {
+      const response = await fetch(`${ANALYSIS_BACKEND_URL}/evaluate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ moves, depth, lines }),
+      });
+
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`Evaluation service error: ${err}`);
+      }
+
+      return (await response.json()) as {
+        lines: Array<{
+          rank: number;
+          score: number | null;
+          mate: number | null;
+          moves: string[];
+          bestMove: string | null;
+        }>;
+        bestMove: string | null;
       };
     },
   },

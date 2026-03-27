@@ -343,6 +343,39 @@ const app = new Elysia()
             }),
           );
 
+          // 🔬 Fire-and-forget: trigger analysis caching
+          // Small delay to let main-backend persist the game_over via Redis worker
+          setTimeout(() => {
+            console.log(`🔬 Triggering analysis pre-cache for room ${gameOver.roomId}...`);
+            fetch("http://localhost:4000/graphql", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                query: `query Analysegame($username: String!, $roomId: String!) {
+                  analysegame(username: $username, roomId: $roomId) {
+                    roomID status
+                    analysis { moveNumber move color score mate bestMove classification }
+                  }
+                }`,
+                variables: {
+                  username: gameOver.Winner,
+                  roomId: gameOver.roomId,
+                },
+              }),
+            })
+              .then((res) => res.json())
+              .then((data: any) => {
+                if (data.errors) {
+                  console.error(`⚠ Analysis pre-cache failed for room ${gameOver.roomId}:`, data.errors[0]?.message);
+                } else {
+                  console.log(`✅ Analysis pre-cached for room ${gameOver.roomId}`);
+                }
+              })
+              .catch((err: any) => {
+                console.error(`⚠ Analysis pre-cache request failed for room ${gameOver.roomId}:`, err.message);
+              });
+          }, 2000); // 2s delay for Redis persistence
+
           // Clean up the room
           activeRooms.delete(gameOver.roomId);
         }

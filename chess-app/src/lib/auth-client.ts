@@ -278,3 +278,42 @@ export async function apiAnalyseGame(
   );
   return data.analysegame;
 }
+
+// ─── Position evaluation (what-if) ────────────────────────────────────────────
+
+export interface EngineLine {
+  rank: number;
+  score: number | null;
+  mate: number | null;
+  moves: string[];
+  bestMove: string | null;
+}
+
+export interface EvaluationResult {
+  lines: EngineLine[];
+  bestMove: string | null;
+}
+
+export async function apiEvaluatePosition(
+  moves: string[],
+  depth = 15,
+  lines = 3,
+): Promise<EvaluationResult> {
+  const data = await gql<{ evaluatePosition: EvaluationResult }>(
+    `query EvaluatePosition($moves: [String!]!, $depth: Int, $lines: Int) {
+      evaluatePosition(moves: $moves, depth: $depth, lines: $lines) {
+        lines {
+          rank
+          score
+          mate
+          moves
+          bestMove
+        }
+        bestMove
+      }
+    }`,
+    { moves, depth, lines },
+  );
+  return data.evaluatePosition;
+}
+

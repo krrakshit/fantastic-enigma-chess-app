@@ -24,21 +24,47 @@ model User {
 }
 
 model Game {
-  id             String   @id @default(cuid())
-  roomID         String   @unique
-  player1        User     @relation("Player1Games", fields: [player1ID], references: [username])
+  id             String         @id @default(cuid())
+  roomID         String         @unique
+  player1        User           @relation("Player1Games", fields: [player1ID], references: [username])
   player1ID      String
-  player2        User     @relation("Player2Games", fields: [player2ID], references: [username])
+  player2        User           @relation("Player2Games", fields: [player2ID], references: [username])
   player2ID      String
   winner         String?
   runnerup       String?
-  moves          Move[]   @relation("GameMoves")
-  createdAt      DateTime @default(now())
-  status         State    @default(start)
-  winnerPoints   Int      @default(0)
-  runnerupPoints Int      @default(0)
+  moves          Move[]         @relation("GameMoves")
+  analysis       GameAnalysis?  @relation("GameAnalysis")
+  createdAt      DateTime       @default(now())
+  status         State          @default(start)
+  winnerPoints   Int            @default(0)
+  runnerupPoints Int            @default(0)
 
   @@map("games")
+}
+
+model GameAnalysis {
+  id          String              @id @default(cuid())
+  roomID      String              @unique
+  game        Game                @relation("GameAnalysis", fields: [roomID], references: [roomID], onDelete: Cascade)
+  moves       AnalysedMove[]      @relation("AnalysisMoves")
+  createdAt   DateTime            @default(now())
+
+  @@map("game_analyses")
+}
+
+model AnalysedMove {
+  id              String        @id @default(cuid())
+  analysisId      String
+  analysis        GameAnalysis   @relation("AnalysisMoves", fields: [analysisId], references: [id], onDelete: Cascade)
+  moveNumber      Int
+  move            String         // UCI notation e.g. "e2e4"
+  color           String         // "white" | "black"
+  score           Int?           // centipawns (null if mate)
+  mate            Int?           // moves to mate (null if not)
+  bestMove        String?        // engine's best suggestion
+  classification  String         // best|excellent|good|inaccuracy|mistake|blunder
+
+  @@map("analysed_moves")
 }
 
 model Move {

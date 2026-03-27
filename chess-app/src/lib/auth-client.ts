@@ -1,4 +1,4 @@
-/**
+ /**
  * Thin GraphQL client that talks to the auth server at localhost:4000/graphql.
  * Cookies (access_token + refresh_token) are sent automatically by the browser
  * because we use credentials: "include".
@@ -160,4 +160,121 @@ export async function apiCheckUsername(
     { username },
   );
   return data.checkUsernameAvailability;
+}
+
+// ─── Game types ───────────────────────────────────────────────────────────────
+
+export interface GamePlayer {
+  username: string;
+  name: string;
+  rating: number;
+}
+
+export interface GameMove {
+  id: string;
+  roomID: string;
+  playerID: string;
+  piece: string;
+  from: string;
+  to: string;
+  time: number;
+  points: number;
+  promotion: string | null;
+  createdAt: string;
+}
+
+export interface Game {
+  id?: string;
+  roomID: string;
+  player1ID: string;
+  player2ID: string;
+  player1?: GamePlayer;
+  player2?: GamePlayer;
+  winner: string | null;
+  runnerup: string | null;
+  winnerPoints: number;
+  runnerupPoints: number;
+  status: "start" | "finished";
+  moves: GameMove[];
+  createdAt?: string;
+}
+
+export interface MoveAnalysis {
+  moveNumber: number;
+  move: string;
+  color: string;
+  score: number | null;
+  mate: number | null;
+  bestMove: string | null;
+  classification: string;
+}
+
+export interface AnalysisResult {
+  roomID: string;
+  player1?: GamePlayer;
+  player2?: GamePlayer;
+  winner: string | null;
+  runnerup: string | null;
+  status: string;
+  analysis: MoveAnalysis[];
+}
+
+// ─── Game queries ─────────────────────────────────────────────────────────────
+
+export async function apiGetGameHistory(username: string): Promise<Game[]> {
+  const data = await gql<{ getAllGamesPlayedByUser: Game[] }>(
+    `query GetGameHistory($username: String!) {
+      getAllGamesPlayedByUser(username: $username) {
+        roomID
+        player1ID
+        player2ID
+        winner
+        runnerup
+        winnerPoints
+        runnerupPoints
+        status
+        moves {
+          id
+          roomID
+          playerID
+          piece
+          from
+          to
+          time
+          points
+          promotion
+          createdAt
+        }
+      }
+    }`,
+    { username },
+  );
+  return data.getAllGamesPlayedByUser;
+}
+
+export async function apiAnalyseGame(
+  username: string,
+  roomId: string,
+): Promise<AnalysisResult> {
+  const data = await gql<{ analysegame: AnalysisResult }>(
+    `query Analysegame($username: String!, $roomId: String!) {
+      analysegame(username: $username, roomId: $roomId) {
+        roomID
+        winner
+        runnerup
+        status
+        analysis {
+          moveNumber
+          move
+          color
+          score
+          mate
+          bestMove
+          classification
+        }
+      }
+    }`,
+    { username, roomId },
+  );
+  return data.analysegame;
 }

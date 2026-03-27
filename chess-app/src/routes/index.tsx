@@ -1,439 +1,231 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useState, useEffect } from "react";
 import type { CSSProperties } from "react";
 import { useAuth } from "../lib/auth-context";
+import { apiGetGameHistory, type Game } from "../lib/auth-client";
 
-export const Route = createFileRoute("/")({
-  component: HomePage,
-});
+export const Route = createFileRoute("/")(
+  { component: HomePage }
+);
 
-const themes = [
-  {
-    name: "Obsidian",
-    path: "/obsidian",
-    desc: "Dark luxury · Gold & marble midnight",
-    gradient: "linear-gradient(135deg, #0A0A0A 0%, #1A1A2E 50%, #C9A84C 100%)",
-    emoji: "🌑",
-    accent: "#C9A84C",
-  },
-  {
-    name: "Pixel Dojo",
-    path: "/pixel-dojo",
-    desc: "Retro 8-bit · CRT scanlines, matrix green",
-    gradient: "linear-gradient(135deg, #0D0208 0%, #003B00 50%, #00FF41 100%)",
-    emoji: "👾",
-    accent: "#00FF41",
-  },
-  {
-    name: "Zen Garden",
-    path: "/zen-garden",
-    desc: "Japanese organic · Wood textures, ink brush",
-    gradient: "linear-gradient(135deg, #F5F0E8 0%, #E8D5B7 50%, #2D4A3E 100%)",
-    emoji: "🎋",
-    accent: "#2D4A3E",
-  },
-  {
-    name: "Neon Arena",
-    path: "/neon-arena",
-    desc: "Cyberpunk esports · Neon glow, holographic HUD",
-    gradient: "linear-gradient(135deg, #0A0E1A 0%, #00F0FF 50%, #FF00E5 100%)",
-    emoji: "⚡",
-    accent: "#00F0FF",
-  },
-  {
-    name: "Parchment",
-    path: "/parchment",
-    desc: "Classical editorial · Vintage newspaper column",
-    gradient: "linear-gradient(135deg, #FFF8E7 0%, #D4C5A0 50%, #8B0000 100%)",
-    emoji: "📜",
-    accent: "#8B0000",
-  },
-];
+const P = "#10B981";
 
 function HomePage() {
   const { status, user, signout } = useAuth();
+  const [games, setGames] = useState<Game[]>([]);
+  const [loadingGames, setLoadingGames] = useState(false);
+
+  useEffect(() => {
+    if (status === "authenticated" && user) {
+      setLoadingGames(true);
+      apiGetGameHistory(user.username)
+        .then((data) => {
+          console.log("Game history loaded:", data);
+          setGames(data);
+        })
+        .catch((err) => {
+          console.error("Failed to load game history:", err);
+        })
+        .finally(() => setLoadingGames(false));
+    }
+  }, [status, user]);
+
+  const recentGames = games.slice(0, 5);
 
   return (
     <div style={pageStyle}>
-      <style>{animations}</style>
 
-      {/* ── Background layers ─────────────────────────────────────────── */}
+      {/* Background */}
       <div style={bgGrid} />
       <div style={bgGlow} />
 
-      {/* ── Auth Nav Bar ──────────────────────────────────────────────── */}
-      <div style={{
-        position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-        padding: "14px 28px",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        background: "rgba(10,10,15,.7)",
-        backdropFilter: "blur(16px)",
-        borderBottom: "1px solid rgba(255,255,255,.05)",
-      }}>
-        <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 800, color: "#C9A84C", fontSize: "1.05rem", letterSpacing: ".04em" }}>♛ Chess Arena</span>
+      {/* Floating chess pieces */}
+      {["♚", "♛", "♜", "♝", "♞", "♟"].map((p, i) => (
+        <div key={i} style={{
+          position: "fixed", fontSize: `${2.5 + i * 0.5}rem`,
+          color: `rgba(16,185,129,0.03)`, pointerEvents: "none", userSelect: "none",
+          top: `${10 + i * 13}%`,
+          ...(i % 2 === 0 ? { left: `${3 + i * 2}%` } : { right: `${3 + i * 2}%` }),
+          animation: `float ${7 + i}s ease-in-out infinite alternate`,
+          animationDelay: `${i * 0.5}s`,
+        }}>{p}</div>
+      ))}
+
+      {/* Nav */}
+      <nav style={navStyle}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontSize: "1.2rem" }}>♛</span>
+          <span style={{ fontWeight: 800, color: P, fontSize: "1rem", letterSpacing: "-.02em" }}>Chess Arena</span>
+        </div>
+
         {status === "loading" ? (
-          <div style={{ width: 20, height: 20, border: "2px solid #222", borderTop: "2px solid #C9A84C", borderRadius: "50%", animation: "spin .7s linear infinite" }} />
+          <div style={{ width: 18, height: 18, border: "2px solid #222", borderTop: `2px solid ${P}`, borderRadius: "50%", animation: "spin .7s linear infinite" }} />
         ) : status === "authenticated" && user ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Link to="/history" style={{ color: "#6B7280", textDecoration: "none", fontSize: ".85rem", fontWeight: 500, transition: "color .2s" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = P; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}
+            >History</Link>
             <div style={{
-              display: "flex", alignItems: "center", gap: 9,
-              background: "rgba(201,168,76,.06)", border: "1px solid rgba(201,168,76,.15)",
-              borderRadius: 8, padding: "6px 12px",
+              display: "flex", alignItems: "center", gap: 8,
+              background: "rgba(16,185,129,.06)", border: "1px solid rgba(16,185,129,.15)",
+              borderRadius: 8, padding: "5px 12px",
             }}>
               <div style={{
-                width: 28, height: 28, borderRadius: "50%",
-                background: "linear-gradient(135deg,#C9A84C,#FFE89D)",
+                width: 26, height: 26, borderRadius: "50%",
+                background: `linear-gradient(135deg, ${P}, #34D399)`,
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontWeight: 900, fontSize: ".75rem", color: "#0A0A0F",
+                fontWeight: 800, fontSize: ".7rem", color: "#0A0A0F",
               }}>{user.username[0].toUpperCase()}</div>
               <div>
-                <div style={{ color: "#C9A84C", fontSize: ".78rem", fontWeight: 700, lineHeight: 1.2 }}>@{user.username}</div>
-                <div style={{ color: "#444", fontSize: ".65rem", lineHeight: 1.2 }}>⚡ {user.rating} ELO</div>
+                <div style={{ color: P, fontSize: ".78rem", fontWeight: 600, lineHeight: 1.2 }}>@{user.username}</div>
+                <div style={{ color: "#4B5563", fontSize: ".62rem", lineHeight: 1.2 }}>⚡ {user.rating} ELO</div>
               </div>
             </div>
-            <button
-              onClick={() => signout()}
-              style={{
-                padding: "7px 14px", borderRadius: 7,
-                border: "1px solid rgba(255,255,255,.08)",
-                background: "transparent", color: "#555",
-                fontSize: ".78rem", cursor: "pointer",
-                fontFamily: "'Cormorant Garamond', serif",
-                transition: "all .2s",
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#FF6B6B"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,107,107,.3)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#555"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.08)"; }}
+            <button onClick={() => signout()} style={signoutBtn}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#EF4444"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#4B5563"; }}
             >Sign out</button>
           </div>
         ) : (
-          <div style={{ display: "flex", gap: 10 }}>
-            <Link to="/signin" style={{
-              padding: "7px 16px", borderRadius: 7,
-              border: "1px solid rgba(255,255,255,.09)",
-              color: "#888", textDecoration: "none",
-              fontSize: ".82rem", fontFamily: "'Cormorant Garamond', serif",
-              transition: "all .2s",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = "#C9A84C"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(201,168,76,.3)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#888"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.09)"; }}
+          <div style={{ display: "flex", gap: 8 }}>
+            <Link to="/signin" style={signinLink}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = P; (e.currentTarget as HTMLElement).style.borderColor = "rgba(16,185,129,.3)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#6B7280"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.08)"; }}
             >Sign in</Link>
-            <Link to="/signup" style={{
-              padding: "7px 16px", borderRadius: 7,
-              background: "linear-gradient(135deg,#C9A84C,#FFE89D)",
-              color: "#0A0A0F", textDecoration: "none",
-              fontSize: ".82rem", fontWeight: 800,
-              fontFamily: "'Playfair Display', serif",
-              transition: "all .2s",
-            }}
-            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
-            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
-            >Join free →</Link>
+            <Link to="/signup" style={signupLink}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
+            >Get started →</Link>
           </div>
         )}
-      </div>
+      </nav>
 
-      {/* ── Floating decorative pieces ────────────────────────────────── */}
-      {["♚", "♛", "♜", "♝", "♞", "♟"].map((p, i) => (
-        <div
-          key={i}
-          style={{
-            position: "fixed",
-            fontSize: `${3 + i * 0.6}rem`,
-            color: `rgba(201,168,76,0.03)`,
-            top: `${8 + i * 14}%`,
-            left: i % 2 === 0 ? `${2 + i * 2}%` : undefined,
-            right: i % 2 !== 0 ? `${2 + i * 2}%` : undefined,
-            pointerEvents: "none",
-            userSelect: "none",
-            animation: `floatPiece ${7 + i}s ease-in-out infinite alternate`,
-            animationDelay: `${i * 0.5}s`,
-          }}
-        >
-          {p}
-        </div>
-      ))}
+      <div style={{ position: "relative", zIndex: 1, maxWidth: 1100, width: "100%", display: "flex", flexDirection: "column", alignItems: "center", animation: "fadeIn .5s ease" }}>
 
-      <div
-        style={{
-          position: "relative",
-          zIndex: 1,
-          maxWidth: 1240,
-          width: "100%",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          animation: "fadeIn 0.6s ease",
-        }}
-      >
-        {/* ── Hero ──────────────────────────────────────────────────────── */}
-        <div style={{ textAlign: "center", marginBottom: 64 }}>
-          <div style={{ fontSize: "4rem", marginBottom: 16, animation: "floatPiece 4s ease-in-out infinite alternate" }}>
-            ♛
-          </div>
-          <h1
-            style={{
-              fontFamily: "'Playfair Display', serif",
-              fontSize: "clamp(2.5rem, 7vw, 5rem)",
-              fontWeight: 900,
-              background: "linear-gradient(135deg, #C9A84C 0%, #FFE89D 40%, #C9A84C 80%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              margin: "0 0 16px",
-              letterSpacing: "-0.03em",
-              lineHeight: 1.1,
-            }}
-          >
-            Chess Arena
-          </h1>
-          <p
-            style={{
-              fontFamily: "'Cormorant Garamond', serif",
-              fontSize: "clamp(1rem, 2.5vw, 1.3rem)",
-              color: "#666",
-              fontStyle: "italic",
-              marginBottom: 40,
-              letterSpacing: "0.04em",
-            }}
-          >
-            The game of kings — five immersive experiences, one battlefield
+        {/* Hero */}
+        <div style={{ textAlign: "center", marginBottom: 56, marginTop: 20 }}>
+          <div style={{ fontSize: "3.5rem", marginBottom: 14, animation: "float 4s ease-in-out infinite alternate" }}>♛</div>
+          <h1 style={{
+            fontSize: "clamp(2.5rem, 6vw, 4.2rem)", fontWeight: 900,
+            background: `linear-gradient(135deg, ${P} 0%, #34D399 40%, ${P} 80%)`,
+            WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+            margin: "0 0 14px", letterSpacing: "-.04em", lineHeight: 1.1,
+          }}>Chess Arena</h1>
+          <p style={{ fontSize: "clamp(.95rem, 2vw, 1.15rem)", color: "#6B7280", maxWidth: 460, margin: "0 auto 36px", lineHeight: 1.7 }}>
+            Real-time multiplayer chess with deep engine analysis. Play, learn, improve.
           </p>
 
-          {/* Primary CTA */}
-          <div style={{ display: "flex", gap: 16, justifyContent: "center", flexWrap: "wrap" }}>
-            <Link
-              to="/game"
-              style={{
-                padding: "16px 48px",
-                background: "linear-gradient(135deg, #C9A84C 0%, #FFE89D 50%, #C9A84C 100%)",
-                backgroundSize: "200% 100%",
-                color: "#0A0A0F",
-                borderRadius: 12,
-                textDecoration: "none",
-                fontWeight: 900,
-                fontSize: "1.1rem",
-                fontFamily: "'Playfair Display', serif",
-                boxShadow: "0 8px 32px rgba(201,168,76,0.3)",
-                transition: "all 0.3s ease",
-                letterSpacing: "0.04em",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.transform = "translateY(-3px)";
-                (e.currentTarget as HTMLElement).style.boxShadow = "0 20px 48px rgba(201,168,76,0.4)";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.transform = "translateY(0)";
-                (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 32px rgba(201,168,76,0.3)";
-              }}
-            >
-              🎮 Play Multiplayer
-            </Link>
-            <a
-              href="#themes"
-              style={{
-                padding: "16px 40px",
-                border: "1px solid rgba(255,255,255,0.1)",
-                color: "#888",
-                borderRadius: 12,
-                textDecoration: "none",
-                fontWeight: 600,
-                fontSize: "1rem",
-                fontFamily: "'Cormorant Garamond', serif",
-                transition: "all 0.3s ease",
-              }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.borderColor = "rgba(201,168,76,0.3)";
-                (e.currentTarget as HTMLElement).style.color = "#C9A84C";
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)";
-                (e.currentTarget as HTMLElement).style.color = "#888";
-              }}
-            >
-              Solo Play ↓
-            </a>
+          <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
+            <Link to="/game" style={primaryBtn}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 16px 48px rgba(16,185,129,.35)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; (e.currentTarget as HTMLElement).style.boxShadow = "0 8px 32px rgba(16,185,129,.2)"; }}
+            >Play Multiplayer</Link>
+            {status === "authenticated" && (
+              <Link to="/history" style={secondaryBtn}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(16,185,129,.3)"; (e.currentTarget as HTMLElement).style.color = P; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.08)"; (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}
+              >View History →</Link>
+            )}
           </div>
         </div>
 
-        {/* ── Stats row ─────────────────────────────────────────────────── */}
-        <div
-          style={{
-            display: "flex",
-            gap: 0,
-            marginBottom: 72,
-            background: "rgba(255,255,255,0.02)",
-            border: "1px solid rgba(255,255,255,0.06)",
-            borderRadius: 16,
-            overflow: "hidden",
-          }}
-        >
+        {/* Stats */}
+        <div style={statsRow}>
           {[
-            { value: "5", label: "Unique Themes" },
-            { value: "∞", label: "Possible Games" },
-            { value: "Real-time", label: "Multiplayer" },
-            { value: "Full", label: "Chess Rules" },
-          ].map((stat, i) => (
-            <div
-              key={i}
-              style={{
-                padding: "24px 36px",
-                textAlign: "center",
-                borderRight: i < 3 ? "1px solid rgba(255,255,255,0.05)" : "none",
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: "'Playfair Display', serif",
-                  fontSize: "1.8rem",
-                  fontWeight: 900,
-                  background: "linear-gradient(135deg, #C9A84C, #FFE89D)",
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  marginBottom: 4,
-                }}
-              >
-                {stat.value}
-              </div>
-              <div style={{ fontSize: "0.72rem", color: "#444", letterSpacing: "0.08em" }}>
-                {stat.label}
-              </div>
+            { value: "Real-time", label: "MULTIPLAYER" },
+            { value: "Stockfish", label: "ANALYSIS ENGINE" },
+            { value: "Full", label: "CHESS RULES" },
+            { value: "∞", label: "POSSIBLE GAMES" },
+          ].map((s, i) => (
+            <div key={i} style={{ padding: "20px 28px", textAlign: "center", borderRight: i < 3 ? "1px solid rgba(255,255,255,.04)" : "none", flex: 1 }}>
+              <div style={{ fontSize: "1.5rem", fontWeight: 800, color: P, marginBottom: 3 }}>{s.value}</div>
+              <div style={{ fontSize: ".62rem", color: "#4B5563", letterSpacing: ".1em", fontWeight: 600 }}>{s.label}</div>
             </div>
           ))}
         </div>
 
-        {/* ── Theme Gallery ──────────────────────────────────────────────── */}
-        <div id="themes" style={{ width: "100%" }}>
-          <div style={{ textAlign: "center", marginBottom: 36 }}>
-            <h2
-              style={{
-                fontFamily: "'Playfair Display', serif",
-                fontSize: "2rem",
-                fontWeight: 700,
-                color: "#fff",
-                margin: "0 0 8px",
-              }}
-            >
-              Choose Your Battlefield
-            </h2>
-            <p style={{ color: "#555", fontFamily: "'Cormorant Garamond', serif", fontStyle: "italic" }}>
-              Each theme is a completely different visual experience
-            </p>
-          </div>
+        {/* Recent Games */}
+        {status === "authenticated" && (
+          <div style={{ width: "100%", marginTop: 56 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <h2 style={{ fontSize: "1.4rem", fontWeight: 700, color: "#E5E7EB", margin: 0 }}>Recent Games</h2>
+              {games.length > 5 && (
+                <Link to="/history" style={{ color: P, textDecoration: "none", fontSize: ".85rem", fontWeight: 600 }}>View all →</Link>
+              )}
+            </div>
 
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-              gap: 20,
-            }}
-          >
-            {themes.map((t) => (
-              <Link
-                key={t.path}
-                to={t.path}
-                style={{
-                  textDecoration: "none",
-                  color: "inherit",
-                  borderRadius: 16,
-                  overflow: "hidden",
-                  background: "#111116",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                  transition: "all 0.35s ease",
-                  display: "block",
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.transform = "translateY(-8px)";
-                  el.style.borderColor = "rgba(201,168,76,0.3)";
-                  el.style.boxShadow = "0 24px 60px rgba(0,0,0,0.5)";
-                }}
-                onMouseLeave={(e) => {
-                  const el = e.currentTarget as HTMLElement;
-                  el.style.transform = "translateY(0)";
-                  el.style.borderColor = "rgba(255,255,255,0.06)";
-                  el.style.boxShadow = "none";
-                }}
-              >
-                {/* Gradient preview */}
-                <div
-                  style={{
-                    height: 140,
-                    background: t.gradient,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: "3.5rem",
-                    position: "relative",
-                    overflow: "hidden",
-                  }}
-                >
-                  {t.emoji}
-                  <div
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      background: "linear-gradient(to bottom, transparent 50%, rgba(17,17,22,0.6) 100%)",
-                    }}
-                  />
-                </div>
+            {loadingGames ? (
+              <div style={{ textAlign: "center", padding: 40 }}>
+                <div style={{ width: 28, height: 28, border: "2px solid #1F2937", borderTop: `2px solid ${P}`, borderRadius: "50%", animation: "spin .8s linear infinite", margin: "0 auto 12px" }} />
+                <p style={{ color: "#4B5563", fontSize: ".85rem" }}>Loading games...</p>
+              </div>
+            ) : recentGames.length === 0 ? (
+              <div style={{ textAlign: "center", padding: "48px 20px", background: "var(--bg-card)", border: "1px solid var(--border)", borderRadius: "var(--radius-lg)" }}>
+                <div style={{ fontSize: "2.5rem", marginBottom: 12, opacity: 0.4 }}>♟</div>
+                <p style={{ color: "#6B7280", fontSize: ".9rem", marginBottom: 16 }}>No games played yet</p>
+                <Link to="/game" style={{ color: P, textDecoration: "none", fontWeight: 600 }}>Play your first game →</Link>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {recentGames.map((g) => {
+                  const isWinner = g.winner === user?.username;
+                  const isLoser = g.runnerup === user?.username;
+                  const isDraw = g.status === "finished" && !g.winner;
 
-                {/* Info */}
-                <div style={{ padding: "20px 24px 24px" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                    <h3
-                      style={{
-                        fontFamily: "'Playfair Display', serif",
-                        fontSize: "1.3rem",
-                        fontWeight: 700,
-                        margin: 0,
-                        color: "#fff",
-                      }}
+                  return (
+                    <div key={g.id} style={gameCard}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(16,185,129,.2)"; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.06)"; }}
                     >
-                      {t.name}
-                    </h3>
-                    <span
-                      style={{
-                        fontSize: "0.65rem",
-                        padding: "3px 8px",
-                        border: `1px solid ${t.accent}44`,
-                        borderRadius: 4,
-                        color: t.accent,
-                        fontWeight: 700,
-                        letterSpacing: "0.08em",
-                      }}
-                    >
-                      SOLO
-                    </span>
-                  </div>
-                  <p
-                    style={{
-                      fontSize: "0.88rem",
-                      color: "#555",
-                      margin: 0,
-                      lineHeight: 1.5,
-                      fontFamily: "'Cormorant Garamond', serif",
-                    }}
-                  >
-                    {t.desc}
-                  </p>
-                </div>
-              </Link>
-            ))}
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 }}>
+                        {/* Result indicator */}
+                        <div style={{
+                          width: 36, height: 36, borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: "1rem",
+                          background: isWinner ? "rgba(16,185,129,.1)" : isLoser ? "rgba(239,68,68,.1)" : "rgba(107,114,128,.1)",
+                          border: `1px solid ${isWinner ? "rgba(16,185,129,.2)" : isLoser ? "rgba(239,68,68,.2)" : "rgba(107,114,128,.2)"}`,
+                        }}>
+                          {isWinner ? "🏆" : isLoser ? "💀" : isDraw ? "🤝" : "⏳"}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: ".88rem", fontWeight: 600, color: "#E5E7EB" }}>vs {g.player1ID === user?.username ? g.player2ID : g.player1ID}</div>
+                          <div style={{ fontSize: ".72rem", color: "#4B5563" }}>
+                            {g.moves.length} moves{g.createdAt ? ` · ${new Date(g.createdAt).toLocaleDateString()}` : ""}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <span style={{
+                          fontSize: ".72rem", fontWeight: 600, padding: "3px 10px", borderRadius: 6,
+                          background: isWinner ? "rgba(16,185,129,.1)" : isLoser ? "rgba(239,68,68,.08)" : "rgba(107,114,128,.08)",
+                          color: isWinner ? P : isLoser ? "#EF4444" : "#6B7280",
+                        }}>
+                          {isWinner ? "Won" : isLoser ? "Lost" : isDraw ? "Draw" : "In progress"}
+                        </span>
+                        {g.status === "finished" && (
+                          <Link to="/analyse/$roomId" params={{ roomId: g.roomID }} style={{
+                            fontSize: ".72rem", fontWeight: 600, padding: "3px 10px", borderRadius: 6,
+                            background: "rgba(16,185,129,.06)", border: "1px solid rgba(16,185,129,.15)",
+                            color: P, textDecoration: "none", transition: "all .2s",
+                          }}
+                            onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(16,185,129,.12)"; }}
+                            onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(16,185,129,.06)"; }}
+                          >Analyse</Link>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
-        </div>
+        )}
 
-        {/* ── Footer ────────────────────────────────────────────────────── */}
-        <div
-          style={{
-            marginTop: 80,
-            paddingTop: 32,
-            borderTop: "1px solid rgba(255,255,255,0.05)",
-            textAlign: "center",
-            width: "100%",
-          }}
-        >
-          <div style={{ fontSize: "1.5rem", marginBottom: 8, opacity: 0.4 }}>♟</div>
-          <p style={{ color: "#333", fontSize: "0.78rem", fontFamily: "'Cormorant Garamond', serif" }}>
-            Chess Arena — Built with React, chess.js, and Elysia WebSockets
+        {/* Footer */}
+        <div style={{ marginTop: 72, paddingTop: 28, borderTop: "1px solid rgba(255,255,255,.04)", textAlign: "center", width: "100%" }}>
+          <p style={{ color: "#374151", fontSize: ".75rem" }}>
+            Chess Arena — React · WebSockets · Stockfish Engine
           </p>
         </div>
       </div>
@@ -444,41 +236,68 @@ function HomePage() {
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
 const pageStyle: CSSProperties = {
-  minHeight: "100vh",
-  background: "#0A0A0F",
-  color: "#fff",
-  display: "flex",
-  flexDirection: "column",
-  alignItems: "center",
-  padding: "60px 24px",
-  position: "relative",
-  overflow: "hidden",
+  minHeight: "100vh", background: "#0A0A0F", color: "#fff",
+  display: "flex", flexDirection: "column", alignItems: "center",
+  padding: "60px 24px", position: "relative", overflow: "hidden",
 };
 
 const bgGrid: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  backgroundImage:
-    "linear-gradient(rgba(201,168,76,0.02) 1px, transparent 1px), linear-gradient(90deg, rgba(201,168,76,0.02) 1px, transparent 1px)",
-  backgroundSize: "80px 80px",
-  pointerEvents: "none",
+  position: "fixed", inset: 0, pointerEvents: "none",
+  backgroundImage: "linear-gradient(rgba(16,185,129,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,0.015) 1px, transparent 1px)",
+  backgroundSize: "72px 72px",
 };
 
 const bgGlow: CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  background:
-    "radial-gradient(ellipse at 50% 0%, rgba(201,168,76,0.08) 0%, transparent 50%)",
-  pointerEvents: "none",
+  position: "fixed", inset: 0, pointerEvents: "none",
+  background: "radial-gradient(ellipse at 50% 0%, rgba(16,185,129,0.06) 0%, transparent 50%)",
 };
 
-const animations = `
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(16px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  @keyframes floatPiece {
-    from { transform: translateY(0) rotate(-3deg); }
-    to { transform: translateY(-18px) rotate(3deg); }
-  }
-`;
+const navStyle: CSSProperties = {
+  position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
+  padding: "12px 28px", display: "flex", alignItems: "center", justifyContent: "space-between",
+  background: "rgba(10,10,15,.8)", backdropFilter: "blur(16px)",
+  borderBottom: "1px solid rgba(255,255,255,.04)",
+};
+
+const signoutBtn: CSSProperties = {
+  padding: "5px 12px", borderRadius: 6, border: "1px solid rgba(255,255,255,.06)",
+  background: "transparent", color: "#4B5563", fontSize: ".78rem", cursor: "pointer",
+  transition: "all .2s",
+};
+
+const signinLink: CSSProperties = {
+  padding: "6px 14px", borderRadius: 7, border: "1px solid rgba(255,255,255,.08)",
+  color: "#6B7280", textDecoration: "none", fontSize: ".82rem", fontWeight: 500, transition: "all .2s",
+};
+
+const signupLink: CSSProperties = {
+  padding: "6px 14px", borderRadius: 7,
+  background: `linear-gradient(135deg, #10B981, #34D399)`,
+  color: "#0A0A0F", textDecoration: "none", fontSize: ".82rem", fontWeight: 700, transition: "all .2s",
+};
+
+const primaryBtn: CSSProperties = {
+  padding: "14px 40px",
+  background: `linear-gradient(135deg, #10B981, #34D399)`,
+  color: "#0A0A0F", borderRadius: 10, textDecoration: "none",
+  fontWeight: 700, fontSize: "1rem", letterSpacing: "-.01em",
+  boxShadow: "0 8px 32px rgba(16,185,129,.2)",
+  transition: "all .3s ease",
+};
+
+const secondaryBtn: CSSProperties = {
+  padding: "14px 32px", border: "1px solid rgba(255,255,255,.08)",
+  color: "#6B7280", borderRadius: 10, textDecoration: "none",
+  fontWeight: 500, fontSize: "1rem", transition: "all .3s ease",
+};
+
+const statsRow: CSSProperties = {
+  display: "flex", width: "100%", background: "rgba(255,255,255,.02)",
+  border: "1px solid rgba(255,255,255,.05)", borderRadius: 14, overflow: "hidden",
+};
+
+const gameCard: CSSProperties = {
+  display: "flex", alignItems: "center", justifyContent: "space-between",
+  padding: "14px 18px", background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.06)",
+  borderRadius: 12, transition: "all .2s", cursor: "default",
+};

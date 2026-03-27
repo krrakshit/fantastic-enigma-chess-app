@@ -1,4 +1,43 @@
-/* Chess Arena — Global Reset */
+/* Chess Arena — Design System */
+:root {
+  --primary: #10B981;
+  --primary-light: #34D399;
+  --primary-dark: #059669;
+  --primary-glow: rgba(16, 185, 129, 0.15);
+  --primary-glow-strong: rgba(16, 185, 129, 0.3);
+
+  --bg: #0A0A0F;
+  --bg-card: rgba(255, 255, 255, 0.025);
+  --bg-card-hover: rgba(255, 255, 255, 0.04);
+  --bg-elevated: rgba(255, 255, 255, 0.035);
+
+  --border: rgba(255, 255, 255, 0.06);
+  --border-hover: rgba(255, 255, 255, 0.12);
+  --border-primary: rgba(16, 185, 129, 0.25);
+
+  --text: #E5E7EB;
+  --text-muted: #6B7280;
+  --text-dim: #374151;
+  --text-bright: #F9FAFB;
+
+  --danger: #EF4444;
+  --warning: #F59E0B;
+  --success: #10B981;
+
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Courier New', monospace;
+
+  --radius-sm: 6px;
+  --radius: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  --shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.6);
+  --shadow-glow: 0 0 40px rgba(16, 185, 129, 0.08);
+}
+
+/* Global Reset */
 *,
 *::before,
 *::after {
@@ -11,21 +50,48 @@ html,
 body {
   width: 100%;
   min-height: 100vh;
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Scrollbar styling */
-::-webkit-scrollbar {
-  width: 6px;
+/* Scrollbar */
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.08); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.15); }
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
-::-webkit-scrollbar-thumb {
-  background: rgba(128, 128, 128, 0.3);
-  border-radius: 3px;
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(128, 128, 128, 0.5);
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.2); }
+}
+@keyframes float {
+  from { transform: translateY(0) rotate(-2deg); }
+  to { transform: translateY(-14px) rotate(2deg); }
+}
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Input styling */
+input::placeholder { color: rgba(255, 255, 255, 0.15); }
+input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 100px #111116 inset;
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
 }

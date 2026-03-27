@@ -383,7 +383,6 @@ const resolvers = {
         },
         orderBy: { createdAt: "desc" },
       });
-      console.log(games[4].moves[0]);
       // Serialize DateTime fields to ISO strings
       return games.map((game) => ({
         ...game,

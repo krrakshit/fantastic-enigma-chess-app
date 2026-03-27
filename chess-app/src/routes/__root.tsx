@@ -18,7 +18,7 @@ export const Route = createRootRoute({
       { rel: "stylesheet", href: appCss },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Press+Start+2P&family=VT323&family=Noto+Serif+JP:wght@400;700&family=Crimson+Pro:ital,wght@0,400;0,600;1,400&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;600&display=swap",
       },
     ],
   }),
@@ -32,7 +32,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body style={{ margin: 0, padding: 0, minHeight: "100vh" }}>
-        {/* AuthProvider wraps WebSocketProvider so auth state is available everywhere */}
         <AuthProvider>
           <WebSocketProvider>{children}</WebSocketProvider>
         </AuthProvider>

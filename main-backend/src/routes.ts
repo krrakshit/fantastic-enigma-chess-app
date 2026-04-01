@@ -242,6 +242,10 @@ const typeDefs = gql`
     message: String!
   }
 
+  type UserRegistered{
+    registered: Boolean!
+    }
+
   # ── Queries ─────────────────────────────────────────────────────────────────
 
   type Query {
@@ -274,6 +278,11 @@ const typeDefs = gql`
     Returns the engine's top N lines with scores — used for "what-if" exploration.
     """
     evaluatePosition(moves: [String!]!, depth: Int, lines: Int): EvaluationResult!
+
+    """
+    Returns if user is regsitered or not.
+    """
+    isUserRegistered(username: String!): UserRegistered!
   }
 
   # ── Mutations ───────────────────────────────────────────────────────────────
@@ -567,6 +576,11 @@ const resolvers = {
         bestMove: string | null;
       };
     },
+
+    isUserRegistered: async (_: unknown, { username }: { username: string }) => {
+      const user = await prisma.user.findUnique({ where: { username } });
+      return { registered: !!user };
+    },
   },
 
   Mutation: {
@@ -691,7 +705,7 @@ async function startServer() {
     path: "/graphql",
     cors: {
       origin: [
-        "http://localhost:5173",
+        "http://localhost:4173",
         "http://localhost:5174",
         "http://localhost:5000",
       ],

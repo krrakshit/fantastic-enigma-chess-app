@@ -33,7 +33,16 @@ function GameLobby() {
   const { connect, send, addListener, status } = useWebSocket();
   const { user } = useAuth();
 
-  const playerId = user?.username ?? "";
+  // Guest username: auto-generate if not authenticated
+  const playerId = user?.username ?? (() => {
+    let guestId = localStorage.getItem("guestUsername");
+    if (!guestId) {
+      guestId = "guest_" + Math.random().toString(36).substring(2, 7);
+      localStorage.setItem("guestUsername", guestId);
+    }
+    return guestId;
+  })();
+  const isGuest = !user;
   const playerIdRef = useRef(playerId);
   playerIdRef.current = playerId;
 
@@ -84,8 +93,9 @@ function GameLobby() {
 
   const handleFindGame = () => {
     if (!wsReady) { setError("Not connected to server yet…"); return; }
-    if (!playerId) { setError("You must be signed in to play."); return; }
     setError("");
+    // Store guest flag in localStorage for the game room to read
+    localStorage.setItem("isGuest", isGuest ? "true" : "false");
     send({ content: "start", uid: playerId });
   };
 
@@ -150,12 +160,19 @@ function GameLobby() {
               )}
 
               <div>
-                <div style={{ fontSize: ".62rem", color: "#4B5563", letterSpacing: ".1em", marginBottom: 6, fontWeight: 600 }}>YOUR PLAYER ID</div>
+                <div style={{ fontSize: ".62rem", color: "#4B5563", letterSpacing: ".1em", marginBottom: 6, fontWeight: 600 }}>
+                  {isGuest ? "PLAYING AS GUEST" : "YOUR PLAYER ID"}
+                </div>
                 <div style={{
                   padding: "10px 14px", borderRadius: 8,
-                  background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.06)",
-                  fontFamily: "'JetBrains Mono', monospace", fontSize: ".85rem", color: "#6B7280",
-                }}>{playerId || "—"}</div>
+                  background: "rgba(255,255,255,.03)", border: `1px solid ${isGuest ? "rgba(245,158,11,.15)" : "rgba(255,255,255,.06)"}`,
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: ".85rem",
+                  color: isGuest ? "#F59E0B" : "#6B7280",
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                }}>
+                  <span>{playerId || "—"}</span>
+                  {isGuest && <span style={{ fontSize: ".6rem", color: "#4B5563" }}>No chat · No history</span>}
+                </div>
               </div>
 
               <button onClick={handleFindGame} disabled={!wsReady} style={{

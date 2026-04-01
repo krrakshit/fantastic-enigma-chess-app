@@ -62,8 +62,8 @@ type Room = {
   player2Socket?: WsConnection;
   chess: Chess;
   moves: Move[];
+  isGuestGame: boolean;  // true if any player is a guest
 };
-
 // --- State ---
 // Queue to store waiting rooms
 const roomQueue: Room[] = [];
@@ -77,6 +77,10 @@ const activeRooms = new Map<string, Room>();
 // --- Helpers ---
 function generateRoomId(): string {
   return Math.random().toString(36).substring(2, 11);
+}
+
+function isGuestPlayer(uid: string): boolean {
+  return uid.startsWith("guest_");
 }
 
 function sendMessage(
@@ -124,6 +128,7 @@ const app = new Elysia()
               player1Socket: ws,
               chess: new Chess(),
               moves: [],
+              isGuestGame: isGuestPlayer(message.uid),
             };
             roomQueue.push(newRoom);
             activeRooms.set(roomId, newRoom);
@@ -157,16 +162,25 @@ const app = new Elysia()
               player2Id: existingRoom.player2Id,
             });
 
-            // Push game start to Redis
-            redisClient.lPush(
-              "chess",
-              JSON.stringify({
-                type: "start",
-                roomID: existingRoom.roomId,
-                player1Id: existingRoom.player1Id,
-                player2Id: existingRoom.player2Id,
-              }),
-            );
+            // Mark as guest game if either player is a guest
+            if (isGuestPlayer(message.uid)) {
+              existingRoom.isGuestGame = true;
+            }
+
+            // Push game start to Redis only for registered players
+            if (!existingRoom.isGuestGame) {
+              redisClient.lPush(
+                "chess",
+                JSON.stringify({
+                  type: "start",
+                  roomID: existingRoom.roomId,
+                  player1Id: existingRoom.player1Id,
+                  player2Id: existingRoom.player2Id,
+                }),
+              );
+            } else {
+              console.log(`🎭 Guest game — skipping Redis persistence for room ${existingRoom.roomId}`);
+            }
 
             console.log(`Match ready: ${existingRoom.roomId}`);
           }
@@ -244,14 +258,16 @@ const app = new Elysia()
                 sendMessage(opponentSocket, "move", { move: moveWithPoints });
               }
 
-              // Push to Redis for main backend persistence (includes promotion)
-              redisClient.lPush(
-                "chess",
-                JSON.stringify({
-                  type: "move",
-                  ...moveWithPoints,
-                }),
-              );
+              // Push to Redis for main backend persistence (only for registered games)
+              if (!room.isGuestGame) {
+                redisClient.lPush(
+                  "chess",
+                  JSON.stringify({
+                    type: "move",
+                    ...moveWithPoints,
+                  }),
+                );
+              }
             } else {
               sendMessage(ws, "error", { message: "Invalid move" });
             }
@@ -330,51 +346,56 @@ const app = new Elysia()
             sendMessage(room.player2Socket, "game_over", gameOverPayload);
           }
 
-          // Push to Redis for main backend
-          redisClient.lPush(
-            "chess",
-            JSON.stringify({
-              type: "game_over",
-              roomID: gameOver.roomId,
-              winner: gameOver.Winner,
-              runnerup: gameOver.Runnerup,
-              winnerPoints,
-              runnerupPoints,
-            }),
-          );
-
-          // 🔬 Fire-and-forget: trigger analysis caching
-          // Small delay to let main-backend persist the game_over via Redis worker
-          setTimeout(() => {
-            console.log(`🔬 Triggering analysis pre-cache for room ${gameOver.roomId}...`);
-            fetch("http://localhost:4000/graphql", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                query: `query Analysegame($username: String!, $roomId: String!) {
-                  analysegame(username: $username, roomId: $roomId) {
-                    roomID status
-                    analysis { moveNumber move color score mate bestMove classification }
-                  }
-                }`,
-                variables: {
-                  username: gameOver.Winner,
-                  roomId: gameOver.roomId,
-                },
+          // Push to Redis for main backend (only for registered games)
+          if (!room.isGuestGame) {
+            redisClient.lPush(
+              "chess",
+              JSON.stringify({
+                type: "game_over",
+                roomID: gameOver.roomId,
+                winner: gameOver.Winner,
+                runnerup: gameOver.Runnerup,
+                winnerPoints,
+                runnerupPoints,
               }),
-            })
-              .then((res) => res.json())
-              .then((data: any) => {
-                if (data.errors) {
-                  console.error(`⚠ Analysis pre-cache failed for room ${gameOver.roomId}:`, data.errors[0]?.message);
-                } else {
-                  console.log(`✅ Analysis pre-cached for room ${gameOver.roomId}`);
-                }
+            );
+          }
+
+          // 🔬 Fire-and-forget: trigger analysis caching (only for registered games)
+          if (!room.isGuestGame) {
+            setTimeout(() => {
+              console.log(`🔬 Triggering analysis pre-cache for room ${gameOver.roomId}...`);
+              fetch("http://localhost:4000/graphql", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  query: `query Analysegame($username: String!, $roomId: String!) {
+                    analysegame(username: $username, roomId: $roomId) {
+                      roomID status
+                      analysis { moveNumber move color score mate bestMove classification }
+                    }
+                  }`,
+                  variables: {
+                    username: gameOver.Winner,
+                    roomId: gameOver.roomId,
+                  },
+                }),
               })
-              .catch((err: any) => {
-                console.error(`⚠ Analysis pre-cache request failed for room ${gameOver.roomId}:`, err.message);
-              });
-          }, 2000); // 2s delay for Redis persistence
+                .then((res) => res.json())
+                .then((data: any) => {
+                  if (data.errors) {
+                    console.error(`⚠ Analysis pre-cache failed for room ${gameOver.roomId}:`, data.errors[0]?.message);
+                  } else {
+                    console.log(`✅ Analysis pre-cached for room ${gameOver.roomId}`);
+                  }
+                })
+                .catch((err: any) => {
+                  console.error(`⚠ Analysis pre-cache request failed for room ${gameOver.roomId}:`, err.message);
+                });
+            }, 2000);
+          } else {
+            console.log(`🎭 Guest game — skipping analysis pre-cache for room ${gameOver.roomId}`);
+          }
 
           // Clean up the room
           activeRooms.delete(gameOver.roomId);

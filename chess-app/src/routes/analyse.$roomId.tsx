@@ -43,6 +43,7 @@ function AnalysePage() {
   const [explorationMoves, setExplorationMoves] = useState<string[]>([]); // alt moves from user
   const [evalResult, setEvalResult] = useState<EvaluationResult | null>(null);
   const [evalLoading, setEvalLoading] = useState(false);
+  const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
 
   // Load analysis
   useEffect(() => {
@@ -145,9 +146,72 @@ function AnalysePage() {
       }
 
       setExplorationMoves((prev) => [...prev, uci]);
+      setSelectedSquare(null);
       return true;
     },
     [chess],
+  );
+
+  // Handle clicking a piece — show legal moves
+  const onPieceClick = useCallback(
+    ({ square }: { square: string }) => {
+      if (selectedSquare === square) {
+        setSelectedSquare(null); // deselect
+        return;
+      }
+      // Check if square has a piece that belongs to the side to move
+      const piece = chess.get(square as any);
+      if (piece && piece.color === chess.turn()) {
+        setSelectedSquare(square);
+      } else {
+        setSelectedSquare(null);
+      }
+    },
+    [chess, selectedSquare],
+  );
+
+  // Handle clicking a square — either move there or select
+  const onSquareClick = useCallback(
+    ({ square }: { square: string }) => {
+      if (!selectedSquare) {
+        // If clicking on own piece, select it
+        const piece = chess.get(square as any);
+        if (piece && piece.color === chess.turn()) {
+          setSelectedSquare(square);
+        }
+        return;
+      }
+
+      // Check if this is a legal move from selectedSquare
+      const legalMoves = chess.moves({ square: selectedSquare as any, verbose: true });
+      const targetMove = legalMoves.find((m) => m.to === square);
+
+      if (targetMove) {
+        const isPromotion = targetMove.flags.includes("p");
+        const uci = selectedSquare + square + (isPromotion ? "q" : "");
+
+        // Validate
+        const testChess = new Chess(chess.fen());
+        try {
+          testChess.move({ from: selectedSquare, to: square, promotion: isPromotion ? "q" : undefined });
+        } catch {
+          setSelectedSquare(null);
+          return;
+        }
+
+        setExplorationMoves((prev) => [...prev, uci]);
+        setSelectedSquare(null);
+      } else {
+        // Clicked a non-target square — try selecting it if it has own piece
+        const piece = chess.get(square as any);
+        if (piece && piece.color === chess.turn()) {
+          setSelectedSquare(square);
+        } else {
+          setSelectedSquare(null);
+        }
+      }
+    },
+    [chess, selectedSquare],
   );
 
   // Navigation
@@ -156,6 +220,7 @@ function AnalysePage() {
       setCurrentMoveIndex(index);
       setExplorationMoves([]); // reset what-if when navigating
       setEvalResult(null);
+      setSelectedSquare(null);
     },
     [],
   );
@@ -198,16 +263,43 @@ function AnalysePage() {
 
   // Highlight squares for the current move (must be before early returns)
   const highlightSquares = useMemo(() => {
-    if (currentMoveIndex < 0 || !result) return {};
-    const m = result.analysis[currentMoveIndex];
-    if (!m) return {};
-    const from = m.move.slice(0, 2);
-    const to = m.move.slice(2, 4);
-    return {
-      [from]: { backgroundColor: "rgba(245,158,11,0.35)" },
-      [to]: { backgroundColor: "rgba(245,158,11,0.45)" },
-    };
-  }, [currentMoveIndex, result]);
+    const styles: Record<string, React.CSSProperties> = {};
+
+    // Last move highlight
+    if (currentMoveIndex >= 0 && result) {
+      const m = result.analysis[currentMoveIndex];
+      if (m) {
+        const from = m.move.slice(0, 2);
+        const to = m.move.slice(2, 4);
+        styles[from] = { backgroundColor: "rgba(245,158,11,0.35)" };
+        styles[to] = { backgroundColor: "rgba(245,158,11,0.45)" };
+      }
+    }
+
+    // Selected piece highlight
+    if (selectedSquare) {
+      styles[selectedSquare] = { backgroundColor: "rgba(16,185,129,0.45)" };
+
+      // Legal move dots
+      try {
+        const legalMoves = chess.moves({ square: selectedSquare as any, verbose: true });
+        for (const move of legalMoves) {
+          const isCapture = move.flags.includes("c") || move.flags.includes("e");
+          styles[move.to] = isCapture
+            ? {
+                background: "radial-gradient(circle, transparent 55%, rgba(16,185,129,0.45) 56%)",
+              }
+            : {
+                background: "radial-gradient(circle, rgba(16,185,129,0.4) 22%, transparent 23%)",
+              };
+        }
+      } catch {
+        // Invalid square
+      }
+    }
+
+    return styles;
+  }, [currentMoveIndex, result, selectedSquare, chess]);
 
   // Loading
   if (loading) {
@@ -244,27 +336,47 @@ function AnalysePage() {
   const blackAcc = acc(blackMoves);
 
   // Eval bar calculation
-  // During normal game review: use the pre-computed analysis score (instant, stable)
-  // During "what-if" exploration: use the live evaluation from the engine
+  // Stockfish scores are always from the SIDE-TO-MOVE's perspective.
+  // The bar must show scores from WHITE's perspective:
+  //   - After a white move → black is to move → negate the score
+  //   - After a black move → white is to move → keep the score
   const currentAnalysis = currentMoveIndex >= 0 ? result.analysis[currentMoveIndex] : null;
   const isExploring = explorationMoves.length > 0;
 
-  let evalScore: number;
-  let evalMate: number | null;
+  let rawScore: number;
+  let rawMate: number | null;
 
   if (isExploring) {
-    // In exploration mode, prefer live eval (falls back to 0 if not loaded yet)
-    evalScore = evalResult?.lines?.[0]?.score ?? 0;
-    evalMate = evalResult?.lines?.[0]?.mate ?? null;
+    rawScore = evalResult?.lines?.[0]?.score ?? 0;
+    rawMate = evalResult?.lines?.[0]?.mate ?? null;
   } else {
-    // In review mode, always use the pre-computed analysis (no flickering)
-    evalScore = currentAnalysis?.score ?? 0;
-    evalMate = currentAnalysis?.mate ?? null;
+    rawScore = currentAnalysis?.score ?? 0;
+    rawMate = currentAnalysis?.mate ?? null;
   }
 
-  const evalPct = evalMate !== null
-    ? (evalMate > 0 ? 95 : 5)
-    : Math.max(5, Math.min(95, 50 + (evalScore / 10)));
+  // Determine if black is to move (score needs negation for white's perspective)
+  // In review mode: after white's move, it's black's turn → negate
+  // In explore mode: use chess.turn() to check whose turn it is
+  const isBlackToMove = isExploring
+    ? chess.turn() === "b"
+    : currentAnalysis?.color === "white"; // white just moved → black's turn
+
+  const evalScore = isBlackToMove ? -rawScore : rawScore;
+  const evalMate = rawMate !== null ? (isBlackToMove ? -rawMate : rawMate) : null;
+
+  // Eval bar percentage (from white's perspective: 95 = white winning, 5 = black winning)
+  let evalPct: number;
+  if (rawMate === 0) {
+    // Checkmate delivered — whoever just moved won
+    const moverColor = isExploring
+      ? (chess.turn() === "w" ? "black" : "white")  // it's the OTHER side that just moved
+      : currentAnalysis?.color;
+    evalPct = moverColor === "white" ? 100 : 0;
+  } else if (evalMate !== null) {
+    evalPct = evalMate > 0 ? 95 : 5;
+  } else {
+    evalPct = Math.max(5, Math.min(95, 50 + (evalScore / 10)));
+  }
 
   return (
     <div style={pageStyle}>
@@ -300,6 +412,8 @@ function AnalysePage() {
               options={{
                 position: chess.fen(),
                 onPieceDrop: onDrop as any,
+                onPieceClick: onPieceClick as any,
+                onSquareClick: onSquareClick as any,
                 animationDurationInMs: 150,
                 boardStyle: { borderRadius: "12px" },
                 darkSquareStyle: { backgroundColor: "#1a3a2a" },
@@ -308,6 +422,7 @@ function AnalysePage() {
                 squareStyles: highlightSquares as any,
                 arrows: boardArrows,
                 allowDragging: true,
+                dragActivationDistance: 8,
                 allowDrawingArrows: false,
               }}
             />

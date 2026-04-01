@@ -342,6 +342,7 @@ function GameRoom() {
   const boardW = boardTheme.squareSize * 8 + boardTheme.boardBorderWidth * 2;
 
   const myId = gameData?.currentPlayerId ?? "";
+  const isGuest = localStorage.getItem("isGuest") === "true" || myId.startsWith("guest_");
   const oppId = myColor === "w" ? (gameData?.player2Id ?? "…") : (gameData?.player1Id ?? "…");
   const topColor: "w" | "b" = flipped ? "w" : "b";
   const bottomColor: "w" | "b" = flipped ? "b" : "w";
@@ -482,7 +483,20 @@ function GameRoom() {
             <MoveHistory moves={game.moveHistory} moveTimes={game.moveTimes} />
           </div>
 
-          <ChatPanel messages={game.chatMessages} onSend={game.sendChat} myId={myId} />
+          {isGuest ? (
+            <div style={{
+              padding: "14px 18px", borderRadius: 10,
+              background: "rgba(245,158,11,.04)", border: "1px solid rgba(245,158,11,.12)",
+              textAlign: "center",
+            }}>
+              <div style={{ fontSize: ".62rem", color: "#F59E0B", fontWeight: 700, letterSpacing: ".1em", marginBottom: 4 }}>GUEST MODE</div>
+              <p style={{ fontSize: ".72rem", color: "#6B7280", margin: 0 }}>
+                Sign up to unlock chat, game history, and analysis.
+              </p>
+            </div>
+          ) : (
+            <ChatPanel messages={game.chatMessages} onSend={game.sendChat} myId={myId} />
+          )}
 
           {/* Footer info */}
           <div style={{ padding: "12px 14px", background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)", borderRadius: 10, display: "flex", flexDirection: "column", gap: 8 }}>

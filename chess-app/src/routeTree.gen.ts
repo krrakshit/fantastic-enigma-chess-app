@@ -15,6 +15,7 @@ import { Route as HistoryRouteImport } from './routes/history'
 import { Route as GameRouteImport } from './routes/game'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as GameRoomIdRouteImport } from './routes/game.$roomId'
+import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AnalyseRoomIdRouteImport } from './routes/analyse.$roomId'
 
 const SignupRoute = SignupRouteImport.update({
@@ -47,6 +48,11 @@ const GameRoomIdRoute = GameRoomIdRouteImport.update({
   path: '/$roomId',
   getParentRoute: () => GameRoute,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/auth/callback',
+  path: '/auth/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AnalyseRoomIdRoute = AnalyseRoomIdRouteImport.update({
   id: '/analyse/$roomId',
   path: '/analyse/$roomId',
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/analyse/$roomId': typeof AnalyseRoomIdRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/game/$roomId': typeof GameRoomIdRoute
 }
 export interface FileRoutesByTo {
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/analyse/$roomId': typeof AnalyseRoomIdRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/game/$roomId': typeof GameRoomIdRoute
 }
 export interface FileRoutesById {
@@ -79,6 +87,7 @@ export interface FileRoutesById {
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/analyse/$roomId': typeof AnalyseRoomIdRoute
+  '/auth/callback': typeof AuthCallbackRoute
   '/game/$roomId': typeof GameRoomIdRoute
 }
 export interface FileRouteTypes {
@@ -90,6 +99,7 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/analyse/$roomId'
+    | '/auth/callback'
     | '/game/$roomId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,6 +109,7 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/analyse/$roomId'
+    | '/auth/callback'
     | '/game/$roomId'
   id:
     | '__root__'
@@ -108,6 +119,7 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/analyse/$roomId'
+    | '/auth/callback'
     | '/game/$roomId'
   fileRoutesById: FileRoutesById
 }
@@ -118,6 +130,7 @@ export interface RootRouteChildren {
   SigninRoute: typeof SigninRoute
   SignupRoute: typeof SignupRoute
   AnalyseRoomIdRoute: typeof AnalyseRoomIdRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -164,6 +177,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GameRoomIdRouteImport
       parentRoute: typeof GameRoute
     }
+    '/auth/callback': {
+      id: '/auth/callback'
+      path: '/auth/callback'
+      fullPath: '/auth/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/analyse/$roomId': {
       id: '/analyse/$roomId'
       path: '/analyse/$roomId'
@@ -191,6 +211,7 @@ const rootRouteChildren: RootRouteChildren = {
   SigninRoute: SigninRoute,
   SignupRoute: SignupRoute,
   AnalyseRoomIdRoute: AnalyseRoomIdRoute,
+  AuthCallbackRoute: AuthCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

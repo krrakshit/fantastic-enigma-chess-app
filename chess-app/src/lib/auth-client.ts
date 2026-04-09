@@ -40,6 +40,11 @@ export interface UsernameAvailability {
   message: string;
 }
 
+export interface SocialAuthUrls {
+  google: string;
+  github: string;
+}
+
 // ─── Core fetch wrapper ───────────────────────────────────────────────────────
 
 async function gql<T>(
@@ -160,6 +165,43 @@ export async function apiCheckUsername(
     { username },
   );
   return data.checkUsernameAvailability;
+}
+
+// ─── Social auth ──────────────────────────────────────────────────────────────
+
+/**
+ * Returns the OAuth redirect URLs for Google and GitHub.
+ */
+export async function apiGetSocialAuthUrls(): Promise<SocialAuthUrls> {
+  const data = await gql<{ socialAuthUrls: SocialAuthUrls }>(
+    `query SocialAuthUrls {
+      socialAuthUrls {
+        google
+        github
+      }
+    }`,
+  );
+  return data.socialAuthUrls;
+}
+
+/**
+ * Completes the OAuth sign-in flow by exchanging the authorization code.
+ * Sets JWT cookies on the response and returns the user.
+ */
+export async function apiCompleteSocialAuth(
+  provider: string,
+  code: string,
+): Promise<AuthUser> {
+  const data = await gql<{ completeSocialAuth: AuthPayload }>(
+    `mutation CompleteSocialAuth($provider: String!, $code: String!) {
+      completeSocialAuth(provider: $provider, code: $code) {
+        ok
+        user { id name username email rating createdAt }
+      }
+    }`,
+    { provider, code },
+  );
+  return data.completeSocialAuth.user;
 }
 
 // ─── Game types ───────────────────────────────────────────────────────────────

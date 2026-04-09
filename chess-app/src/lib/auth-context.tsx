@@ -13,6 +13,8 @@ import {
   apiSignin,
   apiSignout,
   apiSignup,
+  apiGetSocialAuthUrls,
+  apiCompleteSocialAuth,
   type AuthUser,
 } from "./auth-client";
 
@@ -34,6 +36,10 @@ interface AuthContextValue {
   ) => Promise<void>;
   /** Sign in. Throws on error. */
   signin: (usernameOrEmail: string, password: string) => Promise<void>;
+  /** Start social OAuth flow — redirects the browser to the provider. */
+  socialSignIn: (provider: "google" | "github") => Promise<void>;
+  /** Complete social OAuth — called from the callback page with the code. */
+  completeSocialAuth: (provider: string, code: string) => Promise<void>;
   /** Sign out everywhere (clears cookies). */
   signout: () => Promise<void>;
   /**
@@ -137,6 +143,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     stopRefreshTimer();
   }, [stopRefreshTimer]);
 
+  const socialSignIn = useCallback(async (provider: "google" | "github") => {
+    const urls = await apiGetSocialAuthUrls();
+    window.location.href = provider === "google" ? urls.google : urls.github;
+  }, []);
+
+  const completeSocialAuth = useCallback(
+    async (provider: string, code: string) => {
+      const authedUser = await apiCompleteSocialAuth(provider, code);
+      setUser(authedUser);
+      setStatus("authenticated");
+      startRefreshTimer();
+    },
+    [startRefreshTimer],
+  );
+
   const refresh = useCallback(async (): Promise<AuthUser | null> => {
     const refreshed = await apiRefreshToken();
     if (refreshed) {
@@ -150,7 +171,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ status, user, signup, signin, signout, refresh }}>
+    <AuthContext.Provider value={{ status, user, signup, signin, socialSignIn, completeSocialAuth, signout, refresh }}>
       {children}
     </AuthContext.Provider>
   );

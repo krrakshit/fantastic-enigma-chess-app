@@ -1,9 +1,13 @@
 import express, { type Request, type Response } from "express";
 import cookieParser from "cookie-parser";
 import { ApolloServer, gql, AuthenticationError } from "apollo-server-express";
-import { createHash } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import jwt from "jsonwebtoken";
 import { prisma } from "./db";
+import {
+  getGoogleAuthURL, exchangeGoogleCode, getGoogleUser,
+  getGitHubAuthURL, exchangeGitHubCode, getGitHubUser, getGitHubPrimaryEmail,
+} from "./oauth";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Config — override via env vars in production
@@ -102,6 +106,54 @@ function issueTokens(res: Response, data: TokenBase) {
 }
 
 const ANALYSIS_BACKEND_URL = process.env.ANALYSIS_BACKEND_URL ?? "http://localhost:7000";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Social auth helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function generateUniqueUsername(base: string): Promise<string> {
+  const cleaned = base.toLowerCase().replace(/[^a-z0-9_.]/g, "").slice(0, 25);
+  const candidate = cleaned.length >= 3 ? cleaned : `player_${cleaned}`;
+
+  const existing = await prisma.user.findUnique({ where: { username: candidate } });
+  if (!existing) return candidate;
+
+  for (let i = 0; i < 20; i++) {
+    const attempt = `${candidate}${Math.floor(Math.random() * 9999)}`;
+    const exists = await prisma.user.findUnique({ where: { username: attempt } });
+    if (!exists) return attempt;
+  }
+
+  return `player_${Date.now().toString(36)}`;
+}
+
+async function findOrCreateSocialUser(
+  provider: "google" | "github",
+  profile: { name: string; email: string; providerUsername?: string },
+) {
+  const normalizedEmail = profile.email.toLowerCase();
+
+  // Check if user already exists with this email
+  const existing = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+  if (existing) return existing;
+
+  // Generate unique username from provider profile
+  const baseUsername = profile.providerUsername || profile.email.split("@")[0] || "player";
+  const username = await generateUniqueUsername(baseUsername);
+
+  // Create user with a random unusable password
+  const user = await prisma.user.create({
+    data: {
+      name: profile.name || username,
+      username,
+      email: normalizedEmail,
+      password: sha256(randomBytes(32).toString("hex")),
+      authProvider: provider,
+    },
+  });
+
+  return user;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GraphQL Schema
@@ -242,9 +294,14 @@ const typeDefs = gql`
     message: String!
   }
 
-  type UserRegistered{
+  type UserRegistered {
     registered: Boolean!
-    }
+  }
+
+  type SocialAuthUrls {
+    google: String!
+    github: String!
+  }
 
   # ── Queries ─────────────────────────────────────────────────────────────────
 
@@ -283,6 +340,11 @@ const typeDefs = gql`
     Returns if user is regsitered or not.
     """
     isUserRegistered(username: String!): UserRegistered!
+
+    """
+    Returns OAuth redirect URLs for Google and GitHub sign-in.
+    """
+    socialAuthUrls: SocialAuthUrls!
   }
 
   # ── Mutations ───────────────────────────────────────────────────────────────
@@ -317,6 +379,13 @@ const typeDefs = gql`
     Stateless — no DB call needed.
     """
     signout: SignOutPayload!
+
+    """
+    Complete social OAuth sign-in. Takes the provider name and the OAuth
+    authorization code returned in the callback URL. Exchanges the code
+    for user info, creates or finds the user, and sets JWT cookies.
+    """
+    completeSocialAuth(provider: String!, code: String!): AuthPayload!
   }
 `;
 
@@ -581,6 +650,11 @@ const resolvers = {
       const user = await prisma.user.findUnique({ where: { username } });
       return { registered: !!user };
     },
+
+    socialAuthUrls: () => ({
+      google: getGoogleAuthURL(),
+      github: getGitHubAuthURL(),
+    }),
   },
 
   Mutation: {
@@ -679,6 +753,51 @@ const resolvers = {
       clearAuthCookies(ctx.res);
       return { success: true, message: "Signed out successfully." };
     },
+
+    // ── completeSocialAuth ──────────────────────────────────────────────────
+    completeSocialAuth: async (
+      _: unknown,
+      { provider, code }: { provider: string; code: string },
+      ctx: GqlContext,
+    ) => {
+      let profile: { name: string; email: string; providerUsername?: string };
+
+      if (provider === "google") {
+        const tokens = await exchangeGoogleCode(code);
+        const googleUser = await getGoogleUser(tokens.access_token);
+        profile = {
+          name: googleUser.name,
+          email: googleUser.email,
+        };
+      } else if (provider === "github") {
+        const tokens = await exchangeGitHubCode(code);
+        const ghUser = await getGitHubUser(tokens.access_token);
+        const email = ghUser.email || await getGitHubPrimaryEmail(tokens.access_token);
+        profile = {
+          name: ghUser.name || ghUser.login,
+          email,
+          providerUsername: ghUser.login,
+        };
+      } else {
+        throw new Error(`Unsupported provider: ${provider}`);
+      }
+
+      const user = await findOrCreateSocialUser(
+        provider as "google" | "github",
+        profile,
+      );
+
+      issueTokens(ctx.res, {
+        sub: user.id,
+        username: user.username,
+        email: user.email,
+      });
+
+      return {
+        ok: true,
+        user: { ...user, createdAt: user.createdAt.toISOString() },
+      };
+    },
   },
 };
 
@@ -705,6 +824,7 @@ async function startServer() {
     path: "/graphql",
     cors: {
       origin: [
+        "http://localhost:3000",
         "http://localhost:4173",
         "http://localhost:5174",
         "http://localhost:5000",

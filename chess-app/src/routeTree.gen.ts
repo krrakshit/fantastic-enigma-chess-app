@@ -14,6 +14,7 @@ import { Route as SigninRouteImport } from './routes/signin'
 import { Route as HistoryRouteImport } from './routes/history'
 import { Route as GameRouteImport } from './routes/game'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as PlayerUsernameRouteImport } from './routes/player.$username'
 import { Route as GameRoomIdRouteImport } from './routes/game.$roomId'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AnalyseRoomIdRouteImport } from './routes/analyse.$roomId'
@@ -43,6 +44,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const PlayerUsernameRoute = PlayerUsernameRouteImport.update({
+  id: '/player/$username',
+  path: '/player/$username',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GameRoomIdRoute = GameRoomIdRouteImport.update({
   id: '/$roomId',
   path: '/$roomId',
@@ -68,6 +74,7 @@ export interface FileRoutesByFullPath {
   '/analyse/$roomId': typeof AnalyseRoomIdRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/game/$roomId': typeof GameRoomIdRoute
+  '/player/$username': typeof PlayerUsernameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -78,6 +85,7 @@ export interface FileRoutesByTo {
   '/analyse/$roomId': typeof AnalyseRoomIdRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/game/$roomId': typeof GameRoomIdRoute
+  '/player/$username': typeof PlayerUsernameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -89,6 +97,7 @@ export interface FileRoutesById {
   '/analyse/$roomId': typeof AnalyseRoomIdRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/game/$roomId': typeof GameRoomIdRoute
+  '/player/$username': typeof PlayerUsernameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -101,6 +110,7 @@ export interface FileRouteTypes {
     | '/analyse/$roomId'
     | '/auth/callback'
     | '/game/$roomId'
+    | '/player/$username'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -111,6 +121,7 @@ export interface FileRouteTypes {
     | '/analyse/$roomId'
     | '/auth/callback'
     | '/game/$roomId'
+    | '/player/$username'
   id:
     | '__root__'
     | '/'
@@ -121,6 +132,7 @@ export interface FileRouteTypes {
     | '/analyse/$roomId'
     | '/auth/callback'
     | '/game/$roomId'
+    | '/player/$username'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -131,6 +143,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   AnalyseRoomIdRoute: typeof AnalyseRoomIdRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  PlayerUsernameRoute: typeof PlayerUsernameRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -168,6 +181,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/player/$username': {
+      id: '/player/$username'
+      path: '/player/$username'
+      fullPath: '/player/$username'
+      preLoaderRoute: typeof PlayerUsernameRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/game/$roomId': {
@@ -212,16 +232,8 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   AnalyseRoomIdRoute: AnalyseRoomIdRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  PlayerUsernameRoute: PlayerUsernameRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}

@@ -237,6 +237,7 @@ export interface Game {
   winnerPoints: number;
   runnerupPoints: number;
   status: "start" | "finished";
+  result?: string | null;
   moves: GameMove[];
   createdAt?: string;
 }
@@ -357,5 +358,54 @@ export async function apiEvaluatePosition(
     { moves, depth, lines },
   );
   return data.evaluatePosition;
+}
+
+// ─── Player Profile ───────────────────────────────────────────────────────────
+
+export interface PlayerStats {
+  wins: number;
+  losses: number;
+  draws: number;
+  totalGames: number;
+  winRate: number;
+  bestWinStreak: number;
+  avgGameLength: number;
+  mostPlayedOpenings: string[];
+}
+
+export interface RatingHistoryEntry {
+  rating: number;
+  change: number;
+  createdAt: string;
+}
+
+export interface PlayerProfile {
+  user: AuthUser;
+  stats: PlayerStats;
+  ratingHistory: RatingHistoryEntry[];
+  recentGames: Game[];
+}
+
+export async function apiGetPlayerProfile(username: string): Promise<PlayerProfile> {
+  const data = await gql<{ playerProfile: PlayerProfile }>(
+    `query PlayerProfile($username: String!) {
+      playerProfile(username: $username) {
+        user { id name username email rating createdAt }
+        stats {
+          wins losses draws totalGames winRate
+          bestWinStreak avgGameLength mostPlayedOpenings
+        }
+        ratingHistory { rating change createdAt }
+        recentGames {
+          roomID player1ID player2ID winner runnerup
+          winnerPoints runnerupPoints status result createdAt
+          player1 { username name rating }
+          player2 { username name rating }
+        }
+      }
+    }`,
+    { username },
+  );
+  return data.playerProfile;
 }
 

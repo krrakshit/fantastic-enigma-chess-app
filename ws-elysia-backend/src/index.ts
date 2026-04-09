@@ -21,7 +21,7 @@ async function initializeRedis() {
  await initializeRedis();
 
 // --- Types ---
-type Type = "start" | "join" | "move" | "create_room" | "join_room" | GameOver | Chat;
+type Type = "start" | "join" | "move" | "create_room" | "join_room" | "resign" | "draw_offer" | "draw_accept" | "draw_decline" | "timeout" | GameOver | Chat;
 type Chat = {
   roomID : string,
   message : string,
@@ -47,7 +47,8 @@ type Message = {
   content: Type;
   uid: string;
   move?: Move;
-  code?: string; // room code for join_room
+  code?: string;   // room code for join_room
+  roomId?: string;  // room ID for resign/draw/timeout
 };
 
 type WsConnection = Pick<
@@ -64,6 +65,7 @@ type Room = {
   chess: Chess;
   moves: Move[];
   isGuestGame: boolean;  // true if any player is a guest
+  drawOfferedBy?: string; // UID of player who offered draw
 };
 // --- State ---
 // Queue to store waiting rooms
@@ -109,6 +111,70 @@ function sendMessage(
 function getPieceValue(piece: string): number {
   const values: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
   return values[piece.toLowerCase()] ?? 0;
+}
+
+/** Centralized game-ending helper — handles notifications, Redis, analysis, cleanup */
+function endGame(
+  room: Room,
+  winner: string | null,
+  runnerup: string | null,
+  resultType: string, // checkmate | resign | timeout | draw_agreement | stalemate | ...
+) {
+  const winnerPoints = winner
+    ? room.moves.filter((m) => m.playerID === winner).reduce((s, m) => s + m.points, 0)
+    : 0;
+  const runnerupPoints = runnerup
+    ? room.moves.filter((m) => m.playerID === runnerup).reduce((s, m) => s + m.points, 0)
+    : 0;
+
+  console.log(
+    `Game over [${resultType}] in room ${room.roomId}: Winner=${winner ?? "none"} (${winnerPoints}pts), Runnerup=${runnerup ?? "none"} (${runnerupPoints}pts)`,
+  );
+
+  const payload = {
+    winner, runnerup, winnerPoints, runnerupPoints,
+    roomId: room.roomId, resultType,
+  };
+  sendMessage(room.player1Socket, "game_over", payload);
+  if (room.player2Socket) sendMessage(room.player2Socket, "game_over", payload);
+
+  // Push to Redis for main backend persistence
+  if (!room.isGuestGame) {
+    redisClient.lPush("chess", JSON.stringify({
+      type: "game_over",
+      roomID: room.roomId,
+      winner, runnerup, winnerPoints, runnerupPoints, resultType,
+    }));
+  }
+
+  // Trigger analysis pre-cache (only for decisive registered games)
+  if (!room.isGuestGame && winner) {
+    setTimeout(() => {
+      console.log(`🔬 Triggering analysis pre-cache for room ${room.roomId}...`);
+      fetch("http://localhost:4000/graphql", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `query Analysegame($username: String!, $roomId: String!) {
+            analysegame(username: $username, roomId: $roomId) {
+              roomID status
+              analysis { moveNumber move color score mate bestMove classification }
+            }
+          }`,
+          variables: { username: winner, roomId: room.roomId },
+        }),
+      })
+        .then((res) => res.json())
+        .then((data: any) => {
+          if (data.errors) console.error(`⚠ Analysis pre-cache failed for room ${room.roomId}:`, data.errors[0]?.message);
+          else console.log(`✅ Analysis pre-cached for room ${room.roomId}`);
+        })
+        .catch((err: any) => console.error(`⚠ Analysis pre-cache request failed:`, err.message));
+    }, 2000);
+  }
+
+  // Clean up
+  activeRooms.delete(room.roomId);
 }
 
 // --- Server ---
@@ -300,6 +366,70 @@ const app = new Elysia()
           console.log(`Private match ready: ${room.roomId}`);
         }
 
+        // ── Resign ────────────────────────────────────────────────────────
+        if (message.content === "resign") {
+          const room = message.roomId ? activeRooms.get(message.roomId) : undefined;
+          if (!room) { sendMessage(ws, "error", { message: "Room not found" }); return; }
+          const isP1 = room.player1Id === message.uid;
+          const isP2 = room.player2Id === message.uid;
+          if (!isP1 && !isP2) { sendMessage(ws, "error", { message: "Player not in room" }); return; }
+          const winner = isP1 ? room.player2Id! : room.player1Id;
+          const loser = message.uid;
+          console.log(`Player ${loser} resigned in room ${room.roomId}`);
+          endGame(room, winner, loser, "resign");
+        }
+
+        // ── Draw offer ────────────────────────────────────────────────────
+        if (message.content === "draw_offer") {
+          const room = message.roomId ? activeRooms.get(message.roomId) : undefined;
+          if (!room) { sendMessage(ws, "error", { message: "Room not found" }); return; }
+          const isP1 = room.player1Id === message.uid;
+          const isP2 = room.player2Id === message.uid;
+          if (!isP1 && !isP2) { sendMessage(ws, "error", { message: "Player not in room" }); return; }
+          if (room.drawOfferedBy) { sendMessage(ws, "error", { message: "A draw offer is already pending" }); return; }
+          room.drawOfferedBy = message.uid;
+          const opponentSocket = isP1 ? room.player2Socket : room.player1Socket;
+          if (opponentSocket) sendMessage(opponentSocket, "draw_offered", { roomId: room.roomId, offeredBy: message.uid });
+          console.log(`Player ${message.uid} offered a draw in room ${room.roomId}`);
+        }
+
+        // ── Draw accept ───────────────────────────────────────────────────
+        if (message.content === "draw_accept") {
+          const room = message.roomId ? activeRooms.get(message.roomId) : undefined;
+          if (!room) { sendMessage(ws, "error", { message: "Room not found" }); return; }
+          if (!room.drawOfferedBy) { sendMessage(ws, "error", { message: "No draw offer pending" }); return; }
+          if (room.drawOfferedBy === message.uid) { sendMessage(ws, "error", { message: "You cannot accept your own draw offer" }); return; }
+          console.log(`Draw accepted in room ${room.roomId}`);
+          endGame(room, null, null, "draw_agreement");
+        }
+
+        // ── Draw decline ──────────────────────────────────────────────────
+        if (message.content === "draw_decline") {
+          const room = message.roomId ? activeRooms.get(message.roomId) : undefined;
+          if (!room) { sendMessage(ws, "error", { message: "Room not found" }); return; }
+          if (!room.drawOfferedBy) { sendMessage(ws, "error", { message: "No draw offer pending" }); return; }
+          const offerer = room.drawOfferedBy;
+          room.drawOfferedBy = undefined;
+          const offererSocket = room.player1Id === offerer ? room.player1Socket : room.player2Socket;
+          if (offererSocket) sendMessage(offererSocket, "draw_declined", { roomId: room.roomId });
+          console.log(`Draw declined in room ${room.roomId}`);
+        }
+
+        // ── Timeout ───────────────────────────────────────────────────────
+        if (message.content === "timeout") {
+          const room = message.roomId ? activeRooms.get(message.roomId) : undefined;
+          if (!room) { sendMessage(ws, "error", { message: "Room not found" }); return; }
+          const isP1 = room.player1Id === message.uid;
+          const isP2 = room.player2Id === message.uid;
+          if (!isP1 && !isP2) { sendMessage(ws, "error", { message: "Player not in room" }); return; }
+          // The player who reports timeout is saying the OPPONENT ran out of time
+          // So the reporter is the winner
+          const winner = message.uid;
+          const loser = isP1 ? room.player2Id! : room.player1Id;
+          console.log(`Player ${loser} timed out in room ${room.roomId}`);
+          endGame(room, winner, loser, "timeout");
+        }
+
         if (message.content === "move") {
           const move = message.move!;
           const room = activeRooms.get(move.roomID);
@@ -434,85 +564,7 @@ const app = new Elysia()
             sendMessage(ws, "error", { message: "Room not found" });
             return;
           }
-
-          // Tally total points per player from stored moves
-          const winnerPoints = room.moves
-            .filter((m) => m.playerID === gameOver.Winner)
-            .reduce((sum, m) => sum + m.points, 0);
-          const runnerupPoints = room.moves
-            .filter((m) => m.playerID === gameOver.Runnerup)
-            .reduce((sum, m) => sum + m.points, 0);
-
-          console.log(
-            `Game over in room ${gameOver.roomId}: Winner=${gameOver.Winner} (${winnerPoints}pts), Runnerup=${gameOver.Runnerup} (${runnerupPoints}pts)`,
-          );
-
-          // Notify both players
-          const gameOverPayload = {
-            winner: gameOver.Winner,
-            runnerup: gameOver.Runnerup,
-            winnerPoints,
-            runnerupPoints,
-            roomId: gameOver.roomId,
-          };
-          sendMessage(room.player1Socket, "game_over", gameOverPayload);
-          if (room.player2Socket) {
-            sendMessage(room.player2Socket, "game_over", gameOverPayload);
-          }
-
-          // Push to Redis for main backend (only for registered games)
-          if (!room.isGuestGame) {
-            redisClient.lPush(
-              "chess",
-              JSON.stringify({
-                type: "game_over",
-                roomID: gameOver.roomId,
-                winner: gameOver.Winner,
-                runnerup: gameOver.Runnerup,
-                winnerPoints,
-                runnerupPoints,
-              }),
-            );
-          }
-
-          // 🔬 Fire-and-forget: trigger analysis caching (only for registered games)
-          if (!room.isGuestGame) {
-            setTimeout(() => {
-              console.log(`🔬 Triggering analysis pre-cache for room ${gameOver.roomId}...`);
-              fetch("http://localhost:4000/graphql", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  query: `query Analysegame($username: String!, $roomId: String!) {
-                    analysegame(username: $username, roomId: $roomId) {
-                      roomID status
-                      analysis { moveNumber move color score mate bestMove classification }
-                    }
-                  }`,
-                  variables: {
-                    username: gameOver.Winner,
-                    roomId: gameOver.roomId,
-                  },
-                }),
-              })
-                .then((res) => res.json())
-                .then((data: any) => {
-                  if (data.errors) {
-                    console.error(`⚠ Analysis pre-cache failed for room ${gameOver.roomId}:`, data.errors[0]?.message);
-                  } else {
-                    console.log(`✅ Analysis pre-cached for room ${gameOver.roomId}`);
-                  }
-                })
-                .catch((err: any) => {
-                  console.error(`⚠ Analysis pre-cache request failed for room ${gameOver.roomId}:`, err.message);
-                });
-            }, 2000);
-          } else {
-            console.log(`🎭 Guest game — skipping analysis pre-cache for room ${gameOver.roomId}`);
-          }
-
-          // Clean up the room
-          activeRooms.delete(gameOver.roomId);
+          endGame(room, gameOver.Winner, gameOver.Runnerup, "checkmate");
         }
       } catch (error) {
         console.error("Error parsing message:", error);

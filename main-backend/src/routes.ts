@@ -217,13 +217,40 @@ const typeDefs = gql`
     player2ID: String!
     player1: GamePlayer!
     player2: GamePlayer!
-    winner: String           # null while in progress
-    runnerup: String         # null while in progress
+    winner: String
+    runnerup: String
     winnerPoints: Int!
     runnerupPoints: Int!
     status: GameState!
+    result: String
     moves: [Move!]!
     createdAt: String!
+  }
+
+  # ── Player Profile types ───────────────────────────────────────────────
+
+  type PlayerStats {
+    wins: Int!
+    losses: Int!
+    draws: Int!
+    totalGames: Int!
+    winRate: Float!
+    bestWinStreak: Int!
+    avgGameLength: Float!
+    mostPlayedOpenings: [String!]!
+  }
+
+  type RatingHistoryEntry {
+    rating: Int!
+    change: Int!
+    createdAt: String!
+  }
+
+  type PlayerProfile {
+    user: User!
+    stats: PlayerStats!
+    ratingHistory: [RatingHistoryEntry!]!
+    recentGames: [Game!]!
   }
 
   # ── Analysis types ───────────────────────────────────────────────────────
@@ -345,6 +372,11 @@ const typeDefs = gql`
     Returns OAuth redirect URLs for Google and GitHub sign-in.
     """
     socialAuthUrls: SocialAuthUrls!
+
+    """
+    Returns the public profile for a player: stats, rating history, recent games.
+    """
+    playerProfile(username: String!): PlayerProfile!
   }
 
   # ── Mutations ───────────────────────────────────────────────────────────────
@@ -655,6 +687,105 @@ const resolvers = {
       google: getGoogleAuthURL(),
       github: getGitHubAuthURL(),
     }),
+
+    // ── playerProfile ──────────────────────────────────────────────────────────
+    playerProfile: async (_: unknown, { username }: { username: string }) => {
+      const user = await prisma.user.findUnique({
+        where: { username },
+        select: { id: true, name: true, username: true, email: true, rating: true, createdAt: true },
+      });
+      if (!user) throw new Error(`Player "${username}" not found.`);
+
+      // Fetch all finished games for this player
+      const games = await prisma.game.findMany({
+        where: {
+          status: "finished",
+          OR: [{ player1ID: username }, { player2ID: username }],
+        },
+        include: {
+          player1: { select: { username: true, name: true, rating: true } },
+          player2: { select: { username: true, name: true, rating: true } },
+          moves: { orderBy: { createdAt: "asc" }, take: 2 },  // first 2 moves for opening detection
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      let wins = 0, losses = 0, draws = 0;
+      let bestWinStreak = 0, currentStreak = 0;
+      let totalMoves = 0;
+      const openingCounts: Record<string, number> = {};
+
+      for (const g of games) {
+        // Count W/L/D
+        if (g.winner === username) {
+          wins++;
+          currentStreak++;
+          bestWinStreak = Math.max(bestWinStreak, currentStreak);
+        } else if (g.runnerup === username) {
+          losses++;
+          currentStreak = 0;
+        } else {
+          draws++;
+          currentStreak = 0;
+        }
+
+        // Tally move count
+        totalMoves += g.moves.length;
+
+        // Detect "opening" by first white move SAN-ish: piece+from+to
+        if (g.moves.length > 0) {
+          const firstMove = g.moves[0];
+          const key = `${firstMove.piece}${firstMove.from}-${firstMove.to}`;
+          openingCounts[key] = (openingCounts[key] ?? 0) + 1;
+        }
+      }
+
+      const totalGames = wins + losses + draws;
+      const avgGameLength = totalGames > 0 ? Math.round((totalMoves / totalGames) * 10) / 10 : 0;
+      const winRate = totalGames > 0 ? Math.round((wins / totalGames) * 1000) / 10 : 0;
+
+      // Top 5 openings
+      const mostPlayedOpenings = Object.entries(openingCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([k, v]) => `${k} (${v})`);
+
+      // Rating history
+      const ratingHistory = await prisma.ratingHistory.findMany({
+        where: { userId: user.id },
+        orderBy: { createdAt: "asc" },
+        select: { rating: true, change: true, createdAt: true },
+      });
+
+      // Recent games (top 10)
+      const recentGames = games.slice(0, 10).map((g) => ({
+        id: g.id,
+        roomID: g.roomID,
+        player1ID: g.player1ID,
+        player2ID: g.player2ID,
+        player1: g.player1,
+        player2: g.player2,
+        winner: g.winner,
+        runnerup: g.runnerup,
+        winnerPoints: g.winnerPoints,
+        runnerupPoints: g.runnerupPoints,
+        status: g.status,
+        result: g.result,
+        moves: [],
+        createdAt: g.createdAt.toISOString(),
+      }));
+
+      return {
+        user: { ...user, createdAt: user.createdAt.toISOString() },
+        stats: { wins, losses, draws, totalGames, winRate, bestWinStreak, avgGameLength, mostPlayedOpenings },
+        ratingHistory: ratingHistory.map((r) => ({
+          rating: r.rating,
+          change: r.change,
+          createdAt: r.createdAt.toISOString(),
+        })),
+        recentGames,
+      };
+    },
   },
 
   Mutation: {

@@ -8,17 +8,19 @@ datasource db {
 }
 
 model User {
-  id             String   @id @default(cuid())
+  id             String           @id @default(cuid())
   name           String
-  username       String   @unique
-  email          String   @unique
+  username       String           @unique
+  email          String           @unique
   password       String
-  rating         Int      @default(400)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  gamesAsPlayer1 Game[]   @relation("Player1Games")
-  gamesAsPlayer2 Game[]   @relation("Player2Games")
-  authProvider   Provider @default(email)
+  rating         Int              @default(400)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  gamesAsPlayer1 Game[]           @relation("Player1Games")
+  gamesAsPlayer2 Game[]           @relation("Player2Games")
+  authProvider   Provider         @default(email)
+  preferences    UserPreferences?
+  ratingHistory  RatingHistory[]
 
   @@map("users")
 }
@@ -36,8 +38,10 @@ model Game {
   analysis       GameAnalysis?  @relation("GameAnalysis")
   createdAt      DateTime       @default(now())
   status         State          @default(start)
+  result         GameResult?    // how the game ended (null while in progress)
   winnerPoints   Int            @default(0)
   runnerupPoints Int            @default(0)
+  ratingHistory  RatingHistory[] @relation("GameRatingHistory")
 
   @@map("games")
 }
@@ -83,10 +87,44 @@ model Move {
   @@map("moves")
 }
 
+model UserPreferences {
+  id           String  @id @default(cuid())
+  userId       String  @unique
+  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  boardTheme   String  @default("emerald")
+  pieceSet     String  @default("classic")
+  soundEnabled Boolean @default(true)
+
+  @@map("user_preferences")
+}
+
+model RatingHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  rating    Int
+  change    Int      // +12 or -8
+  gameId    String
+  game      Game     @relation("GameRatingHistory", fields: [gameId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@map("rating_history")
+}
 
 enum State {
   start
   finished
+}
+
+enum GameResult {
+  checkmate
+  resign
+  timeout
+  stalemate
+  draw_agreement
+  threefold
+  insufficient
+  fifty_move
 }
 
 enum Provider {

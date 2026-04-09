@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { ChessBoard } from "../components/ChessBoard";
-import { useChessWebSocket, INITIAL_TIME_MS, type GameResult, type ChatMessage } from "../lib/useChessWebSocket";
+import { useChessWebSocket, type GameResult, type ChatMessage } from "../lib/useChessWebSocket";
 import { PieceSVG } from "../lib/piece-svgs";
 import type { Move } from "chess.js";
 import { useWebSocket } from "../lib/websocket-context";
+import { getMuted, setMuted } from "../lib/sounds";
+import { getThemeColors, getThemeList, saveTheme, getSavedTheme } from "../lib/board-themes";
 
 export const Route = createFileRoute("/game/$roomId")({
   component: GameRoom,
@@ -223,7 +225,7 @@ function GameOverOverlay({ status, turn, myColor, gameResult, myId, myPoints, op
         const durationSeconds = Math.round((endedAt.getTime() - startedAt.getTime()) / 1000);
         const result: GameResult = {
           winner: null, runnerup: null, winnerPoints: 0, runnerupPoints: 0,
-          myPoints, opponentPoints, totalMoves: 0, status,
+          myPoints, opponentPoints, totalMoves: 0, status, resultType: status,
           roomId: session.roomId ?? "", startedAt: startedAt.toISOString(),
           endedAt: endedAt.toISOString(), durationSeconds,
         };
@@ -232,19 +234,39 @@ function GameOverOverlay({ status, turn, myColor, gameResult, myId, myPoints, op
     }
   }, [status]);
 
+  // Check if game is over via server game_over (resign/timeout/draw_agreement)
+  const serverEnded = gameResult !== null;
   const terminalStatuses = ["checkmate", "stalemate", "draw", "threefold", "insufficient"];
-  if (!terminalStatuses.includes(status)) return null;
+  if (!terminalStatuses.includes(status) && !serverEnded) return null;
+
+  // Determine display info from the result
+  const resultType = gameResult?.resultType ?? status;
+  const iAmWinner = gameResult ? gameResult.winner === myId : (turn === "w" ? "b" : "w") === myColor;
+  const isDraw = resultType === "draw_agreement" || resultType === "stalemate" || resultType === "threefold" || resultType === "insufficient" || resultType === "fifty_move" || resultType === "draw";
 
   let emoji = "🤝", headline = "Draw", sub = "The game is a draw.";
-  if (status === "checkmate") {
-    const winner = turn === "w" ? "b" : "w";
-    const iWon = winner === myColor;
-    emoji = iWon ? "🏆" : "💀";
-    headline = iWon ? "Victory!" : "Defeat";
-    sub = iWon ? "You checkmated your opponent!" : "You were checkmated.";
-  } else if (status === "stalemate") { sub = "Stalemate — no legal moves."; }
+  if (isDraw) {
+    const reasons: Record<string, string> = {
+      draw_agreement: "Both players agreed to a draw.",
+      stalemate: "Stalemate — no legal moves.",
+      threefold: "Threefold repetition.",
+      insufficient: "Insufficient material.",
+      fifty_move: "Fifty-move rule.",
+      draw: "The game is a draw.",
+    };
+    sub = reasons[resultType] ?? "The game is a draw.";
+  } else {
+    emoji = iAmWinner ? "🏆" : "💀";
+    headline = iAmWinner ? "Victory!" : "Defeat";
+    const resultSubs: Record<string, { win: string; lose: string }> = {
+      checkmate: { win: "You checkmated your opponent!", lose: "You were checkmated." },
+      resign: { win: "Your opponent resigned.", lose: "You resigned the game." },
+      timeout: { win: "Your opponent ran out of time.", lose: "You ran out of time." },
+    };
+    const r = resultSubs[resultType] ?? resultSubs.checkmate;
+    sub = iAmWinner ? r.win : r.lose;
+  }
 
-  const iAmWinner = gameResult ? gameResult.winner === myId : (turn === "w" ? "b" : "w") === myColor;
   const displayMyPts = gameResult ? (iAmWinner ? gameResult.winnerPoints : gameResult.runnerupPoints) : myPoints;
   const displayOppPts = gameResult ? (iAmWinner ? gameResult.runnerupPoints : gameResult.winnerPoints) : opponentPoints;
 
@@ -263,7 +285,7 @@ function GameOverOverlay({ status, turn, myColor, gameResult, myId, myPoints, op
         }}>{headline}</h2>
         <p style={{ color: "#9CA3AF", fontSize: ".95rem", marginBottom: 22, lineHeight: 1.6 }}>{sub}</p>
 
-        {status === "checkmate" && (
+        {!isDraw && (
           <div style={{
             display: "flex", gap: 12, marginBottom: 24, background: "rgba(255,255,255,.02)",
             borderRadius: 10, padding: "12px 16px", border: "1px solid rgba(255,255,255,.05)",
@@ -326,17 +348,27 @@ function GameRoom() {
 
   const myColor = game.myColor;
   const flipped = myColor === "b";
-  const isOver = ["checkmate", "stalemate", "draw", "threefold", "insufficient"].includes(game.gameStatus);
+  const isOver = ["checkmate", "stalemate", "draw", "threefold", "insufficient"].includes(game.gameStatus) || game.gameResult !== null;
   const isDisabled = !game.isMyTurn || isOver;
+  const [showResignConfirm, setShowResignConfirm] = useState(false);
+  const [soundMuted, setSoundMuted] = useState(getMuted());
+  const [pgnCopied, setPgnCopied] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState(getSavedTheme());
+  const themeColors = getThemeColors(currentTheme);
+
+  const handleThemeChange = (themeName: string) => {
+    saveTheme(themeName);
+    setCurrentTheme(themeName);
+  };
 
   const boardTheme = {
-    lightSquare: "#2D3748", darkSquare: "#1A202C",
-    selectedSquare: "rgba(16,185,129,.35)", legalMoveIndicator: "rgba(16,185,129,.3)",
-    lastMoveHighlight: "rgba(16,185,129,.15)", checkHighlight: "rgba(239,68,68,.5)",
-    boardBorder: P, boardBorderWidth: 3,
-    boardShadow: `0 0 50px rgba(16,185,129,.08), 0 20px 60px rgba(0,0,0,.6)`,
+    lightSquare: themeColors.lightSquare, darkSquare: themeColors.darkSquare,
+    selectedSquare: themeColors.selectedSquare, legalMoveIndicator: themeColors.legalMoveIndicator,
+    lastMoveHighlight: themeColors.lastMoveHighlight, checkHighlight: themeColors.checkHighlight,
+    boardBorder: themeColors.boardBorder, boardBorderWidth: 3,
+    boardShadow: `0 0 50px ${themeColors.accent}15, 0 20px 60px rgba(0,0,0,.6)`,
     pieceSize: 58, squareSize: 70,
-    coordinateColor: P, coordinateFontFamily: "'Inter', sans-serif",
+    coordinateColor: themeColors.accent, coordinateFontFamily: "'Inter', sans-serif",
   };
 
   const boardW = boardTheme.squareSize * 8 + boardTheme.boardBorderWidth * 2;
@@ -498,6 +530,122 @@ function GameRoom() {
             <ChatPanel messages={game.chatMessages} onSend={game.sendChat} myId={myId} />
           )}
 
+          {/* ── Draw Offer Banner ── */}
+          {game.drawOffered && !isOver && (
+            <div style={{
+              padding: "12px 16px", borderRadius: 10,
+              background: "rgba(245,158,11,.06)", border: "1px solid rgba(245,158,11,.2)",
+              display: "flex", alignItems: "center", gap: 10,
+              animation: "fadeIn .3s ease",
+            }}>
+              <span style={{ fontSize: ".85rem" }}>🤝</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: ".78rem", fontWeight: 600, color: "#F59E0B" }}>Draw Offered</div>
+                <div style={{ fontSize: ".65rem", color: "#6B7280" }}>Your opponent offers a draw</div>
+              </div>
+              <button onClick={game.acceptDraw} style={{
+                padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(16,185,129,.3)",
+                background: "rgba(16,185,129,.1)", color: P, fontSize: ".72rem", fontWeight: 700, cursor: "pointer",
+              }}>Accept</button>
+              <button onClick={game.declineDraw} style={{
+                padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(239,68,68,.2)",
+                background: "rgba(239,68,68,.06)", color: "#EF4444", fontSize: ".72rem", fontWeight: 700, cursor: "pointer",
+              }}>Decline</button>
+            </div>
+          )}
+
+          {/* ── Game Controls (Resign / Draw / Sound) ── */}
+          {!isOver && (
+            <div style={{
+              padding: "12px 14px", background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)",
+              borderRadius: 10, display: "flex", gap: 6,
+            }}>
+              {/* Resign */}
+              {!showResignConfirm ? (
+                <button onClick={() => setShowResignConfirm(true)} style={{
+                  flex: 1, padding: "7px 0", borderRadius: 7,
+                  border: "1px solid rgba(239,68,68,.15)", background: "rgba(239,68,68,.04)",
+                  color: "#EF4444", fontSize: ".72rem", fontWeight: 600, cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                }}>
+                  <span>🏳</span> Resign
+                </button>
+              ) : (
+                <>
+                  <button onClick={() => { game.resign(); setShowResignConfirm(false); }} style={{
+                    flex: 1, padding: "7px 0", borderRadius: 7,
+                    border: "1px solid rgba(239,68,68,.3)", background: "rgba(239,68,68,.12)",
+                    color: "#EF4444", fontSize: ".72rem", fontWeight: 700, cursor: "pointer",
+                  }}>Confirm Resign</button>
+                  <button onClick={() => setShowResignConfirm(false)} style={{
+                    padding: "7px 10px", borderRadius: 7,
+                    border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.02)",
+                    color: "#6B7280", fontSize: ".72rem", cursor: "pointer",
+                  }}>Cancel</button>
+                </>
+              )}
+
+              {/* Draw Offer */}
+              {!showResignConfirm && (
+                <button onClick={game.offerDraw} disabled={game.drawOfferSent} style={{
+                  flex: 1, padding: "7px 0", borderRadius: 7,
+                  border: `1px solid ${game.drawOfferSent ? "rgba(107,114,128,.15)" : "rgba(245,158,11,.15)"}`,
+                  background: game.drawOfferSent ? "rgba(107,114,128,.04)" : "rgba(245,158,11,.04)",
+                  color: game.drawOfferSent ? "#4B5563" : "#F59E0B",
+                  fontSize: ".72rem", fontWeight: 600, cursor: game.drawOfferSent ? "not-allowed" : "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                }}>
+                  <span>🤝</span> {game.drawOfferSent ? "Offered" : "Draw"}
+                </button>
+              )}
+
+              {/* Sound Toggle */}
+              {!showResignConfirm && (
+                <button onClick={() => { const next = !soundMuted; setMuted(next); setSoundMuted(next); }} style={{
+                  padding: "7px 10px", borderRadius: 7,
+                  border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.02)",
+                  color: "#6B7280", fontSize: ".82rem", cursor: "pointer",
+                }} title={soundMuted ? "Unmute" : "Mute"}>
+                  {soundMuted ? "🔇" : "🔊"}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* ── PGN Export (after game over) ── */}
+          {isOver && (
+            <div style={{
+              padding: "12px 14px", background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)",
+              borderRadius: 10, display: "flex", gap: 6,
+            }}>
+              <button onClick={() => {
+                const pgn = game.exportPGN();
+                navigator.clipboard.writeText(pgn).then(() => { setPgnCopied(true); setTimeout(() => setPgnCopied(false), 2000); });
+              }} style={{
+                flex: 1, padding: "7px 0", borderRadius: 7,
+                border: `1px solid ${P}30`, background: `rgba(16,185,129,.05)`,
+                color: P, fontSize: ".72rem", fontWeight: 600, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+              }}>
+                {pgnCopied ? "✓ PGN Copied!" : "📋 Copy PGN"}
+              </button>
+              <button onClick={() => {
+                const pgn = game.exportPGN();
+                const blob = new Blob([pgn], { type: "application/x-chess-pgn" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a"); a.href = url; a.download = `chess-arena-${roomId}.pgn`; a.click();
+                URL.revokeObjectURL(url);
+              }} style={{
+                flex: 1, padding: "7px 0", borderRadius: 7,
+                border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.02)",
+                color: "#9CA3AF", fontSize: ".72rem", fontWeight: 600, cursor: "pointer",
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+              }}>
+                ⬇ Download PGN
+              </button>
+            </div>
+          )}
+
           {/* Footer info */}
           <div style={{ padding: "12px 14px", background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)", borderRadius: 10, display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -512,6 +660,20 @@ function GameRoom() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: ".62rem", color: "#4B5563", letterSpacing: ".05em" }}>MOVES</span>
               <span style={{ fontSize: ".8rem", color: "#9CA3AF", fontWeight: 600 }}>{game.moveHistory.length}</span>
+            </div>
+            {/* Theme Picker */}
+            <div>
+              <div style={{ fontSize: ".62rem", color: "#4B5563", letterSpacing: ".05em", marginBottom: 6 }}>BOARD THEME</div>
+              <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                {getThemeList().map((t) => (
+                  <button key={t.name} onClick={() => handleThemeChange(t.name)} title={t.label} style={{
+                    width: 28, height: 28, borderRadius: 6, cursor: "pointer",
+                    background: `linear-gradient(135deg, ${t.lightSquare} 50%, ${t.darkSquare} 50%)`,
+                    border: currentTheme === t.name ? `2px solid ${t.accent}` : "2px solid transparent",
+                    transition: "all .2s",
+                  }} />
+                ))}
+              </div>
             </div>
             <Link to="/game" style={{
               display: "block", textAlign: "center", padding: "8px 0",

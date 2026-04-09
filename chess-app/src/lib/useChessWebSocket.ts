@@ -10,6 +10,7 @@ import type {
   PieceColor,
 } from "./chess-engine";
 import { useWebSocket, type WsStatus } from "./websocket-context";
+import { playSoundForMove, playGameEnd, playVictory, playDefeat, playNotify, playClockTick, playError } from "./sounds";
 
 // ─── Module-level constants ────────────────────────────────────────────────────
 const PIECE_VALUES: Record<string, number> = {
@@ -85,6 +86,7 @@ export interface GameResult {
   opponentPoints: number;
   totalMoves: number;
   status: string;
+  resultType: string; // checkmate | resign | timeout | draw_agreement | stalemate | ...
   roomId: string;
   startedAt: string;
   endedAt: string;
@@ -122,6 +124,20 @@ export interface MultiplayerGameState extends ChessGameState {
   chatMessages: ChatMessage[];
   /** Send a chat message to the opponent */
   sendChat: (message: string) => void;
+  /** Resign the game */
+  resign: () => void;
+  /** Offer a draw */
+  offerDraw: () => void;
+  /** Accept a pending draw offer */
+  acceptDraw: () => void;
+  /** Decline a pending draw offer */
+  declineDraw: () => void;
+  /** Whether a draw offer has been received from opponent */
+  drawOffered: boolean;
+  /** Whether we have sent a draw offer (waiting for response) */
+  drawOfferSent: boolean;
+  /** Export game as PGN string */
+  exportPGN: () => string;
 }
 
 export interface ChatMessage {
@@ -220,6 +236,11 @@ export function useChessWebSocket(
   // ── Chat messages ─────────────────────────────────────────────────────
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
+  // ── Draw offer state ──────────────────────────────────────────────────
+  const [drawOffered, setDrawOffered] = useState(false);   // opponent offered
+  const [drawOfferSent, setDrawOfferSent] = useState(false); // we offered
+  const timeoutSentRef = useRef(false); // prevent duplicate timeout reports
+
   // ── Chess clock state ─────────────────────────────────────────────────
   const _getSavedTimes = () => {
     if (roomData) {
@@ -292,6 +313,26 @@ export function useChessWebSocket(
       ? roomData.player2Id
       : roomData.player1Id
     : null;
+
+  // ── Auto-detect timeout ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!roomData || !gameHasStarted || timeoutSentRef.current) return;
+    const isOver = chess.isCheckmate() || chess.isStalemate() || chess.isDraw();
+    if (isOver) return;
+
+    // If the opponent's clock hit 0, we win
+    const opponentColor = myColor === "w" ? "b" : "w";
+    const opponentTime = opponentColor === "w" ? whiteTime : blackTime;
+    if (opponentTime <= 0 && myColor) {
+      timeoutSentRef.current = true;
+      send({ content: "timeout", uid: roomData.currentPlayerId, roomId: roomData.roomId });
+    }
+    // Play clock tick for low time
+    const myTime = myColor === "w" ? whiteTime : blackTime;
+    if (myTime > 0 && myTime <= 30000 && myTime % 1000 < 200) {
+      playClockTick();
+    }
+  }, [whiteTime, blackTime, myColor, roomData, gameHasStarted, send]);
 
   // ── Persist game state to localStorage ────────────────────────────────
   /**
@@ -370,7 +411,7 @@ export function useChessWebSocket(
           if (msg.move.promotion && ["q", "r", "b", "n"].includes(msg.move.promotion)) {
             movePayload.promotion = msg.move.promotion;
           }
-          chess.move(movePayload);
+          const result = chess.move(movePayload);
           if (msg.move.points) {
             opponentPointsRef.current += msg.move.points;
             setOpponentPoints(opponentPointsRef.current);
@@ -380,6 +421,10 @@ export function useChessWebSocket(
           setMoveTimes(moveTimesRef.current);
           // Reset move start time so our next move's elapsed is relative
           moveStartTime.current = Date.now();
+          // Play sound for opponent's move
+          if (result) {
+            playSoundForMove(result, chess.inCheck());
+          }
           // Persist state after opponent move
           persistGameState(chess);
           refresh();
@@ -396,6 +441,7 @@ export function useChessWebSocket(
         const durationSeconds = Math.round(
           (endedAt.getTime() - startedAt.getTime()) / 1000,
         );
+        const resultType = msg.resultType ?? "checkmate";
         const result: GameResult = {
           winner: msg.winner ?? null,
           runnerup: msg.runnerup ?? null,
@@ -404,13 +450,22 @@ export function useChessWebSocket(
           myPoints: myPts,
           opponentPoints: oppPts,
           totalMoves: chess.history().length,
-          status: "checkmate",
+          status: resultType,
+          resultType,
           roomId: msg.roomId ?? roomData?.roomId ?? "",
           startedAt: startedAt.toISOString(),
           endedAt: endedAt.toISOString(),
           durationSeconds,
         };
         setGameResult(result);
+        setDrawOffered(false);
+        setDrawOfferSent(false);
+        // Play appropriate end-game sound
+        const iWon = msg.winner === roomData?.currentPlayerId;
+        const isDraw = !msg.winner;
+        if (isDraw) playGameEnd();
+        else if (iWon) playVictory();
+        else playDefeat();
         // Persist full game result — clear game state on finish
         try {
           const raw = localStorage.getItem("gameData");
@@ -424,11 +479,18 @@ export function useChessWebSocket(
         } catch {
           /* ignore */
         }
+      } else if (msg.type === "draw_offered") {
+        setDrawOffered(true);
+        playNotify();
+      } else if (msg.type === "draw_declined") {
+        setDrawOfferSent(false);
+        playError();
       } else if (msg.type === "chat") {
         setChatMessages((prev) => [
           ...prev,
           { senderID: msg.senderID, message: msg.message, timestamp: Date.now() },
         ]);
+        playNotify();
       } else if (msg.type === "error") {
         setErrorMessage(msg.message ?? "Server error");
         // Auto-clear after 3 s
@@ -449,6 +511,8 @@ export function useChessWebSocket(
       try {
         const move = chess.move({ from, to, promotion: promotion ?? "q" });
         if (move) {
+          // Play sound for own move
+          playSoundForMove(move, chess.inCheck());
           // Push move to the server so it can relay it to the opponent
           if (roomData) {
             const now = Date.now();
@@ -528,6 +592,56 @@ export function useChessWebSocket(
     [roomData, send],
   );
 
+  // ── resign ──────────────────────────────────────────────────────────────
+  const resign = useCallback(() => {
+    if (!roomData) return;
+    send({ content: "resign", uid: roomData.currentPlayerId, roomId: roomData.roomId });
+  }, [roomData, send]);
+
+  // ── draw offer / accept / decline ───────────────────────────────────────
+  const offerDraw = useCallback(() => {
+    if (!roomData || drawOfferSent) return;
+    setDrawOfferSent(true);
+    send({ content: "draw_offer", uid: roomData.currentPlayerId, roomId: roomData.roomId });
+  }, [roomData, send, drawOfferSent]);
+
+  const acceptDraw = useCallback(() => {
+    if (!roomData) return;
+    send({ content: "draw_accept", uid: roomData.currentPlayerId, roomId: roomData.roomId });
+    setDrawOffered(false);
+  }, [roomData, send]);
+
+  const declineDraw = useCallback(() => {
+    if (!roomData) return;
+    send({ content: "draw_decline", uid: roomData.currentPlayerId, roomId: roomData.roomId });
+    setDrawOffered(false);
+  }, [roomData, send]);
+
+  // ── PGN export ──────────────────────────────────────────────────────────
+  const exportPGN = useCallback((): string => {
+    const headers: string[] = [];
+    headers.push(`[Event "Chess Arena"]`);
+    headers.push(`[Site "Chess Arena"]`);
+    headers.push(`[Date "${new Date().toISOString().slice(0, 10).replace(/-/g, ".")}"]`);
+    headers.push(`[White "${roomData?.player1Id ?? "Unknown"}"]`);
+    headers.push(`[Black "${roomData?.player2Id ?? "Unknown"}"]`);
+    const resultStr = gameResult
+      ? gameResult.winner === roomData?.player1Id ? "1-0"
+        : gameResult.winner === roomData?.player2Id ? "0-1"
+        : "1/2-1/2"
+      : "*";
+    headers.push(`[Result "${resultStr}"]`);
+    if (gameResult?.resultType) headers.push(`[Termination "${gameResult.resultType}"]`);
+    const moves = chess.history();
+    let moveText = "";
+    for (let i = 0; i < moves.length; i++) {
+      if (i % 2 === 0) moveText += `${Math.floor(i / 2) + 1}. `;
+      moveText += moves[i] + " ";
+    }
+    moveText += resultStr;
+    return headers.join("\n") + "\n\n" + moveText.trim() + "\n";
+  }, [chess, roomData, gameResult]);
+
   // ── undo / reset (disabled in multiplayer) ─────────────────────────────
   const undo = useCallback(() => {}, []);
   const reset = useCallback(() => {}, []);
@@ -582,5 +696,12 @@ export function useChessWebSocket(
     moveTimes,
     chatMessages,
     sendChat,
+    resign,
+    offerDraw,
+    acceptDraw,
+    declineDraw,
+    drawOffered,
+    drawOfferSent,
+    exportPGN,
   };
 }

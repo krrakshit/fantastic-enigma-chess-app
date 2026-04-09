@@ -62,6 +62,10 @@ function HomePage() {
           <div style={{ width: 18, height: 18, border: "2px solid #222", borderTop: `2px solid ${P}`, borderRadius: "50%", animation: "spin .7s linear infinite" }} />
         ) : status === "authenticated" && user ? (
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <Link to="/player/$username" params={{ username: user.username }} style={{ color: "#6B7280", textDecoration: "none", fontSize: ".85rem", fontWeight: 500, transition: "color .2s" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = P; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}
+            >Profile</Link>
             <Link to="/history" style={{ color: "#6B7280", textDecoration: "none", fontSize: ".85rem", fontWeight: 500, transition: "color .2s" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = P; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#6B7280"; }}

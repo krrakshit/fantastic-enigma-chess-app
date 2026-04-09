@@ -67,29 +67,60 @@ async function processqueue() {
           });
           console.log("Move stored in DB");
         } else if (data.type === "game_over") {
-          console.log("Game end for room id: " + data.roomID);
-          await prisma.user.update({
-            where: { username: data.winner },
-            data: { rating: { increment: 10 } },
-          });
-          await prisma.user.update({
-            where: { username: data.runnerup },
-            data: { rating: { decrement: 10 } },
-          });
+          console.log(`Game end for room id: ${data.roomID} [${data.resultType ?? "unknown"}]`);
+
+          const isDraw = !data.winner;
+          const ratingChange = 10; // fixed for now, could be ELO formula
+
+          if (!isDraw && data.winner && data.runnerup) {
+            // Update ratings for decisive games
+            await prisma.user.update({
+              where: { username: data.winner },
+              data: { rating: { increment: ratingChange } },
+            });
+            await prisma.user.update({
+              where: { username: data.runnerup },
+              data: { rating: { decrement: ratingChange } },
+            });
+          }
+
+          // Update game status
           await prisma.game.update({
-            where: {
-              roomID: data.roomID,
-            },
+            where: { roomID: data.roomID },
             data: {
               status: "finished",
-              winner: data.winner,
-              runnerup: data.runnerup,
+              winner: data.winner ?? null,
+              runnerup: data.runnerup ?? null,
               winnerPoints: data.winnerPoints ?? 0,
               runnerupPoints: data.runnerupPoints ?? 0,
+              result: data.resultType ?? null,
             },
           });
+
+          // Create rating history entries for player profiles
+          if (!isDraw && data.winner && data.runnerup) {
+            const game = await prisma.game.findUnique({
+              where: { roomID: data.roomID },
+              select: { id: true },
+            });
+            if (game) {
+              const winnerUser = await prisma.user.findUnique({ where: { username: data.winner }, select: { id: true, rating: true } });
+              const runnerupUser = await prisma.user.findUnique({ where: { username: data.runnerup }, select: { id: true, rating: true } });
+              if (winnerUser) {
+                await prisma.ratingHistory.create({
+                  data: { userId: winnerUser.id, rating: winnerUser.rating, change: ratingChange, gameId: game.id },
+                });
+              }
+              if (runnerupUser) {
+                await prisma.ratingHistory.create({
+                  data: { userId: runnerupUser.id, rating: runnerupUser.rating, change: -ratingChange, gameId: game.id },
+                });
+              }
+            }
+          }
+
           console.log(
-            `Game over stored: Winner=${data.winner} (${data.winnerPoints}pts), Runnerup=${data.runnerup} (${data.runnerupPoints}pts)`,
+            `Game over stored: ${isDraw ? "Draw" : `Winner=${data.winner} (${data.winnerPoints}pts), Runnerup=${data.runnerup} (${data.runnerupPoints}pts)`} [${data.resultType ?? "unknown"}]`,
           );
         }
       }

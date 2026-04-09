@@ -319,6 +319,104 @@ function GameOverOverlay({ status, turn, myColor, gameResult, myId, myPoints, op
   );
 }
 
+// ── Game Started Overlay ──────────────────────────────────────────────────────
+
+function GameStartOverlay({ ready }: { ready: boolean }) {
+  const [visible, setVisible] = useState(false);
+  const [fadeOut, setFadeOut] = useState(false);
+  const shown = useRef(false);
+
+  useEffect(() => {
+    if (ready && !shown.current) {
+      shown.current = true;
+      setVisible(true);
+      // Start fade-out after 1.8s
+      const t1 = setTimeout(() => setFadeOut(true), 1800);
+      // Remove from DOM after fade completes
+      const t2 = setTimeout(() => setVisible(false), 2500);
+      return () => { clearTimeout(t1); clearTimeout(t2); };
+    }
+  }, [ready]);
+
+  if (!visible) return null;
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 3000,
+      background: "rgba(0,0,0,.75)", backdropFilter: "blur(12px)",
+      display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+      opacity: fadeOut ? 0 : 1, transition: "opacity .7s ease",
+      pointerEvents: "none",
+    }}>
+      {/* Glow ring */}
+      <div style={{
+        width: 120, height: 120, borderRadius: "50%",
+        background: `radial-gradient(circle, rgba(16,185,129,.15) 0%, transparent 70%)`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        animation: "pulseGlow 1.5s ease-in-out infinite",
+        marginBottom: 20,
+      }}>
+        <div style={{
+          width: 80, height: 80, borderRadius: "50%",
+          background: `linear-gradient(135deg, ${P}, #34D399)`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: "2.5rem",
+          boxShadow: `0 0 40px rgba(16,185,129,.4), 0 0 80px rgba(16,185,129,.15)`,
+          animation: "bounceIn .5s cubic-bezier(.68,-.55,.27,1.55)",
+        }}>
+          ♞
+        </div>
+      </div>
+
+      <h2 style={{
+        fontSize: "2rem", fontWeight: 900, margin: "0 0 6px",
+        background: `linear-gradient(135deg, ${P}, #34D399, #6EE7B7)`,
+        WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
+        animation: "slideUp .4s ease .15s both",
+        letterSpacing: "-.02em",
+      }}>
+        Game On!
+      </h2>
+      <p style={{
+        color: "#9CA3AF", fontSize: ".9rem", margin: 0,
+        animation: "slideUp .4s ease .3s both",
+      }}>
+        Both players connected · White's clock is running
+      </p>
+
+      {/* Animated dots */}
+      <div style={{ display: "flex", gap: 6, marginTop: 16, animation: "slideUp .4s ease .45s both" }}>
+        {[0, 1, 2].map((i) => (
+          <div key={i} style={{
+            width: 6, height: 6, borderRadius: "50%", background: P,
+            animation: `dotPulse 1.2s ease ${i * .2}s infinite`,
+          }} />
+        ))}
+      </div>
+
+      <style>{`
+        @keyframes pulseGlow {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.1); opacity: .7; }
+        }
+        @keyframes bounceIn {
+          0% { transform: scale(0); opacity: 0; }
+          60% { transform: scale(1.15); }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes slideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes dotPulse {
+          0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
+          40% { transform: scale(1); opacity: 1; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 function GameRoom() {
@@ -378,9 +476,9 @@ function GameRoom() {
   const oppId = myColor === "w" ? (gameData?.player2Id ?? "…") : (gameData?.player1Id ?? "…");
   const topColor: "w" | "b" = flipped ? "w" : "b";
   const bottomColor: "w" | "b" = flipped ? "b" : "w";
-  const topId = flipped ? myId : oppId;
-  const bottomId = flipped ? oppId : myId;
-  const topIsMe = flipped;
+  const topId = oppId;
+  const bottomId = myId;
+  const topIsMe = false;
 
   const whiteCaptured = game.capturedPieces.b;
   const blackCaptured = game.capturedPieces.w;
@@ -430,6 +528,9 @@ function GameRoom() {
           <button onClick={() => setWasRestored(false)} style={{ marginLeft: 6, background: "none", border: "none", color: P, cursor: "pointer", fontSize: ".95rem", lineHeight: 1 }}>×</button>
         </div>
       )}
+
+      {/* Game Started Animation */}
+      <GameStartOverlay ready={game.bothPlayersReady} />
 
       <div style={{ display: "flex", gap: 32, alignItems: "flex-start", position: "relative", zIndex: 1, flexWrap: "wrap", justifyContent: "center", animation: "fadeIn .4s ease" }}>
         {/* Board column */}

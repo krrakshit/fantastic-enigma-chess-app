@@ -10,7 +10,7 @@ import type {
   PieceColor,
 } from "./chess-engine";
 import { useWebSocket, type WsStatus } from "./websocket-context";
-import { playSoundForMove, playGameEnd, playVictory, playDefeat, playNotify, playClockTick, playError } from "./sounds";
+import { playSoundForMove, playGameStart, playGameEnd, playVictory, playDefeat, playNotify, playClockTick, playError } from "./sounds";
 
 // ─── Module-level constants ────────────────────────────────────────────────────
 const PIECE_VALUES: Record<string, number> = {
@@ -138,6 +138,8 @@ export interface MultiplayerGameState extends ChessGameState {
   drawOfferSent: boolean;
   /** Export game as PGN string */
   exportPGN: () => string;
+  /** Whether both players are connected and the game is live */
+  bothPlayersReady: boolean;
 }
 
 export interface ChatMessage {
@@ -190,7 +192,11 @@ export function useChessWebSocket(
   const refresh = useCallback(() => forceUpdate((n) => n + 1), []);
   // moveStartTime is null until the first move — prevents huge initial elapsed values
   const moveStartTime = useRef<number | null>(null);
-  const gameStartTime = useRef<number | null>(null); // set on first move
+  const gameStartTime = useRef<number | null>(null);
+
+  // Whether both players are connected (triggers timer + animation)
+  const [bothPlayersReady, setBothPlayersReady] = useState(false);
+  const gameStartSoundPlayed = useRef(false);
 
   // Restore point totals from localStorage if available
   const _getSavedPoints = () => {
@@ -268,13 +274,29 @@ export function useChessWebSocket(
   const lastTickRef = useRef<number>(Date.now());
 
   // Start / stop the countdown interval based on whose turn it is
-  // Timer only runs after the FIRST move (white plays) so it begins on black's first turn
+  // Timer starts as soon as both players are connected (bothPlayersReady)
   const moveCount = chess.history().length;
-  const gameHasStarted = moveCount > 0;
+
+  // Detect both players ready from roomData
   useEffect(() => {
-    // Don't tick before any move is made or after the game ends
+    if (roomData && roomData.player1Id && roomData.player2Id) {
+      setBothPlayersReady(true);
+      // Set game start time on first detection
+      if (gameStartTime.current === null) {
+        gameStartTime.current = Date.now();
+      }
+      // Play game start sound once
+      if (!gameStartSoundPlayed.current) {
+        gameStartSoundPlayed.current = true;
+        playGameStart();
+      }
+    }
+  }, [roomData]);
+
+  useEffect(() => {
+    // Don't tick before both players are ready or after the game ends
     const isOver = chess.isCheckmate() || chess.isStalemate() || chess.isDraw();
-    if (!gameHasStarted || isOver) {
+    if (!bothPlayersReady || isOver) {
       if (timerRef.current) clearInterval(timerRef.current);
       return;
     }
@@ -299,7 +321,7 @@ export function useChessWebSocket(
     };
     // Re-run whenever the move count changes (turn switches) or game ends
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [moveCount, chess.isCheckmate(), chess.isStalemate(), chess.isDraw()]);
+  }, [moveCount, bothPlayersReady, chess.isCheckmate(), chess.isStalemate(), chess.isDraw()]);
 
   // Derive player color from room data
   const myColor: PieceColor | null = roomData
@@ -316,7 +338,7 @@ export function useChessWebSocket(
 
   // ── Auto-detect timeout ───────────────────────────────────────────────
   useEffect(() => {
-    if (!roomData || !gameHasStarted || timeoutSentRef.current) return;
+    if (!roomData || !bothPlayersReady || timeoutSentRef.current) return;
     const isOver = chess.isCheckmate() || chess.isStalemate() || chess.isDraw();
     if (isOver) return;
 
@@ -332,7 +354,7 @@ export function useChessWebSocket(
     if (myTime > 0 && myTime <= 30000 && myTime % 1000 < 200) {
       playClockTick();
     }
-  }, [whiteTime, blackTime, myColor, roomData, gameHasStarted, send]);
+  }, [whiteTime, blackTime, myColor, roomData, bothPlayersReady, send]);
 
   // ── Persist game state to localStorage ────────────────────────────────
   /**
@@ -703,5 +725,6 @@ export function useChessWebSocket(
     drawOffered,
     drawOfferSent,
     exportPGN,
+    bothPlayersReady,
   };
 }

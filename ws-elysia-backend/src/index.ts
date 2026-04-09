@@ -21,7 +21,7 @@ async function initializeRedis() {
  await initializeRedis();
 
 // --- Types ---
-type Type = "start" | "join" | "move" | GameOver | Chat;
+type Type = "start" | "join" | "move" | "create_room" | "join_room" | GameOver | Chat;
 type Chat = {
   roomID : string,
   message : string,
@@ -47,6 +47,7 @@ type Message = {
   content: Type;
   uid: string;
   move?: Move;
+  code?: string; // room code for join_room
 };
 
 type WsConnection = Pick<
@@ -74,9 +75,23 @@ const playerConnections = new Map<string, WsConnection>();
 // Store rooms by roomId
 const activeRooms = new Map<string, Room>();
 
+// Store private rooms by human-readable code
+const privateRooms = new Map<string, Room>();
+
 // --- Helpers ---
 function generateRoomId(): string {
   return Math.random().toString(36).substring(2, 11);
+}
+
+/** Generate a human-friendly room code like "KNIGHT42" */
+function generateRoomCode(): string {
+  const words = ["KNIGHT", "BISHOP", "CASTLE", "QUEEN", "PAWN", "ROOK", "KING", "CHECK", "GAMBIT", "BLITZ"];
+  const word = words[Math.floor(Math.random() * words.length)];
+  const num = Math.floor(Math.random() * 900) + 100; // 100-999
+  const code = `${word}${num}`;
+  // Ensure uniqueness
+  if (privateRooms.has(code)) return generateRoomCode();
+  return code;
 }
 
 function isGuestPlayer(uid: string): boolean {
@@ -184,6 +199,105 @@ const app = new Elysia()
 
             console.log(`Match ready: ${existingRoom.roomId}`);
           }
+        }
+
+        // ── Create private room (play with friend) ────────────────────────
+        if (message.content === "create_room") {
+          console.log(`Player ${message.uid} wants to create a private room`);
+
+          playerConnections.set(message.uid, ws);
+
+          const roomId = generateRoomId();
+          const code = generateRoomCode();
+          const newRoom: Room = {
+            roomId,
+            player1Id: message.uid,
+            player1Socket: ws,
+            chess: new Chess(),
+            moves: [],
+            isGuestGame: isGuestPlayer(message.uid),
+          };
+          activeRooms.set(roomId, newRoom);
+          privateRooms.set(code, newRoom);
+          console.log(`Private room created: ${roomId} (code: ${code}) for player ${message.uid}`);
+
+          sendMessage(ws, "private_room_created", {
+            roomId,
+            code,
+            status: "waiting_for_friend",
+          });
+        }
+
+        // ── Join private room (play with friend) ──────────────────────────
+        if (message.content === "join_room") {
+          const code = (message.code ?? "").toUpperCase().trim();
+          console.log(`Player ${message.uid} wants to join private room with code: ${code}`);
+
+          if (!code) {
+            sendMessage(ws, "error", { message: "Room code is required" });
+            return;
+          }
+
+          const room = privateRooms.get(code);
+          if (!room) {
+            sendMessage(ws, "error", { message: "Invalid room code. No room found." });
+            return;
+          }
+
+          if (room.player2Id) {
+            sendMessage(ws, "error", { message: "Room is already full." });
+            return;
+          }
+
+          if (room.player1Id === message.uid) {
+            sendMessage(ws, "error", { message: "You cannot join your own room." });
+            return;
+          }
+
+          playerConnections.set(message.uid, ws);
+          room.player2Id = message.uid;
+          room.player2Socket = ws;
+
+          // Mark as guest game if either player is a guest
+          if (isGuestPlayer(message.uid)) {
+            room.isGuestGame = true;
+          }
+
+          console.log(
+            `Private room ${room.roomId} (code: ${code}) matched: Player1=${room.player1Id}, Player2=${room.player2Id}`,
+          );
+
+          // Notify player 2 (joiner)
+          sendMessage(ws, "room_matched", {
+            roomId: room.roomId,
+            player1Id: room.player1Id,
+            player2Id: room.player2Id,
+          });
+
+          // Notify player 1 (creator)
+          sendMessage(room.player1Socket, "opponent_joined", {
+            roomId: room.roomId,
+            player2Id: room.player2Id,
+          });
+
+          // Push game start to Redis only for registered players
+          if (!room.isGuestGame) {
+            redisClient.lPush(
+              "chess",
+              JSON.stringify({
+                type: "start",
+                roomID: room.roomId,
+                player1Id: room.player1Id,
+                player2Id: room.player2Id,
+              }),
+            );
+          } else {
+            console.log(`🎭 Guest game — skipping Redis persistence for private room ${room.roomId}`);
+          }
+
+          // Clean up from private rooms map (code no longer needed)
+          privateRooms.delete(code);
+          console.log(`Private match ready: ${room.roomId}`);
         }
 
         if (message.content === "move") {

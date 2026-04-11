@@ -177,10 +177,27 @@ function endGame(
   activeRooms.delete(room.roomId);
 }
 
+// --- Allowed Origins ---
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS ?? "http://localhost:5173,http://localhost:5174,http://localhost:5000")
+  .split(",")
+  .map((o) => o.trim());
+
+function isOriginAllowed(origin: string | null | undefined): boolean {
+  if (!origin) return false;
+  return ALLOWED_ORIGINS.includes(origin);
+}
+
 // --- Server ---
 // TODO: can be done using subscribe, unsubscribe and publish
 const app = new Elysia()
   .ws("/ws", {
+    beforeHandle({ request }) {
+      const origin = request.headers.get("origin");
+      if (!isOriginAllowed(origin)) {
+        console.log(`🚫 Rejected WebSocket connection from origin: ${origin ?? "none"}`);
+        return new Response("Forbidden: origin not allowed", { status: 403 });
+      }
+    },
     open(ws) {
       console.log("Player connected:");
       sendMessage(ws, "connected", {

@@ -6,7 +6,7 @@
  * All mutations/queries here correspond 1-to-1 with the server schema.
  */
 
-const GQL_URL = import.meta.env.VITE_GQL_URL ?? "http://localhost:4000/graphql";
+const GQL_URL = process.env.VITE_GQL_URL ?? "http://localhost:4000/graphql";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

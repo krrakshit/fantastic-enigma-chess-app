@@ -6,6 +6,10 @@ import tailwindcss from '@tailwindcss/vite'
 import { nitro } from 'nitro/vite'
 
 const config = defineConfig({
+  define: {
+    'process.env.VITE_GQL_URL': JSON.stringify(process.env.VITE_GQL_URL),
+    'process.env.VITE_WS_URL': JSON.stringify(process.env.VITE_WS_URL),
+  },
   plugins: [
     tsconfigPaths({ projects: ['./tsconfig.json'] }),
     tailwindcss(),

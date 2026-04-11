@@ -954,19 +954,22 @@ async function startServer() {
     app: app as any,
     path: "/graphql",
     cors: {
-      origin: [
-        "http://localhost:3000",
-        "http://localhost:4173",
-        "http://localhost:5174",
-        "http://localhost:5000",
-      ],
+      origin: process.env.CORS_ORIGINS
+        ? process.env.CORS_ORIGINS.split(",")
+        : [
+            "http://localhost:3000",
+            "http://localhost:4173",
+            "http://localhost:5174",
+            "http://localhost:5000",
+          ],
       credentials: true,
     },
   });
 
-  app.listen({ port: 4000 }, () => {
-    console.log("🚀 GraphQL API  →  http://localhost:4000/graphql");
-    console.log("📊 Playground   →  http://localhost:4000/graphql");
+  const port = Number(process.env.PORT ?? 4000);
+  app.listen({ port }, () => {
+    console.log(`🚀 GraphQL API  →  http://localhost:${port}/graphql`);
+    console.log(`📊 Playground   →  http://localhost:${port}/graphql`);
   });
 }
 

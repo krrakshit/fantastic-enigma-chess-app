@@ -2,7 +2,7 @@ import { Elysia, t } from "elysia";
 import { createClient } from "redis";
 import { Chess } from "chess.js";
 
-const redisClient = createClient({ url: "redis://localhost:6379" });
+const redisClient = createClient({ url: process.env.REDIS_URL ?? "redis://localhost:6379" });
 async function initializeRedis() {
   try {
     redisClient.on("error", (err: Error) => {
@@ -151,7 +151,7 @@ function endGame(
   if (!room.isGuestGame && winner) {
     setTimeout(() => {
       console.log(`🔬 Triggering analysis pre-cache for room ${room.roomId}...`);
-      fetch("http://localhost:4000/graphql", {
+      fetch(`${process.env.MAIN_BACKEND_URL ?? "http://localhost:4000"}/graphql`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -574,7 +574,7 @@ const app = new Elysia()
       console.log("Player disconnected");
     },
   })
-  .listen(3000);
+  .listen(Number(process.env.PORT ?? 3000));
 
 console.log(
   `🦊 WebSocket server is running at ${app.server?.hostname}:${app.server?.port}`,

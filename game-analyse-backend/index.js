@@ -247,7 +247,8 @@ sendCommand("isready");
 
 console.log("⚡ Engine config: Hash=128MB, FullAnalysis=depth12, Evaluate=movetime500ms");
 
-app.listen(7000, () => console.log("♟ Chess analysis server on :7000"));
+const PORT = Number(7000);
+app.listen(PORT, () => console.log(`♟ Chess analysis server on :${PORT}`));
 
 process.on("SIGINT", () => {
   sendCommand("quit");

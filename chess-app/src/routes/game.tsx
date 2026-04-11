@@ -13,7 +13,7 @@ export const Route = createFileRoute("/game")({
   component: GameLobby,
 });
 
-const WS_URL = "ws://localhost:3000/ws";
+const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:3000/ws";
 const P = "#10B981";
 
 const FACTS = [

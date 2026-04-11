@@ -6,7 +6,7 @@ import { prisma } from "./db";
 import "./routes";
 
 const redisClient = createClient({
-  url: "redis://localhost:6379",
+  url: process.env.REDIS_URL,
 });
 
 async function initializeRedis() {

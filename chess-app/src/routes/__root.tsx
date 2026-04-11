@@ -6,6 +6,8 @@ import {
 import appCss from "../styles.css?url";
 import { WebSocketProvider } from "../lib/websocket-context";
 import { AuthProvider } from "../lib/auth-context";
+import { Analytics } from "@vercel/analytics/next"
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export const Route = createRootRoute({
   head: () => ({
@@ -36,6 +38,8 @@ function RootDocument({ children }: { children: React.ReactNode }) {
           <WebSocketProvider>{children}</WebSocketProvider>
         </AuthProvider>
         <Scripts />
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

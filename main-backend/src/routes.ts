@@ -936,41 +936,86 @@ const resolvers = {
 // Apollo + Express bootstrap
 // ─────────────────────────────────────────────────────────────────────────────
 
+import cors from "cors";
+
 const app = express();
 app.use(cookieParser());
 app.use(express.json());
+
+// ── CORS configuration ─────────────────────────────────────────────────────
+// Build the allowlist from CORS_ORIGINS env var (comma-separated).
+// In production, only your frontend domain(s) should be listed.
+const ALLOWED_ORIGINS: string[] = process.env.CORS_ORIGINS
+  ? process.env.CORS_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+  : [
+      "http://localhost:3000",
+      "http://localhost:4173",
+      "http://localhost:5174",
+      "http://localhost:5000",
+    ];
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, Postman, server-to-server)
+    // only in development. In production, always require an origin.
+    if (!origin) {
+      if (process.env.NODE_ENV === "production") {
+        callback(new Error("Missing origin header — request blocked by CORS policy."));
+      } else {
+        callback(null, true);
+      }
+      return;
+    }
+
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`🚫 CORS blocked request from origin: ${origin}`);
+      callback(new Error(`Origin ${origin} is not allowed by CORS policy.`));
+    }
+  },
+  credentials: true,               // Required for cookies (access_token, refresh_token)
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "Apollo-Require-Preflight",     // Apollo client sends this
+    "X-Apollo-Operation-Name",
+  ],
+  maxAge: 86400,                    // Cache preflight response for 24 hours
+};
+
+// Apply CORS globally — this handles ALL routes including preflight OPTIONS
+app.use(cors(corsOptions));
+
+// Health check endpoint (useful for load balancers / monitoring)
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", timestamp: new Date().toISOString() });
+});
 
 async function startServer() {
   const server = new ApolloServer({
     typeDefs,
     resolvers,
-    introspection: true,
+    introspection: process.env.NODE_ENV !== "production",
     context: buildContext,
   });
 
   await server.start();
 
+  // Let Express `cors` middleware handle CORS — disable Apollo's built-in handling
   server.applyMiddleware({
     app: app as any,
     path: "/graphql",
-    cors: {
-      origin: process.env.CORS_ORIGINS
-        ? process.env.CORS_ORIGINS.split(",")
-        : [
-            "http://localhost:3000",
-            "http://localhost:4173",
-            "http://localhost:5174",
-            "http://localhost:5000",
-          ],
-      credentials: true,
-    },
+    cors: false,       // ← Important: Express cors middleware is handling this
   });
 
   const port = Number(process.env.PORT ?? 4000);
   app.listen({ port }, () => {
     console.log(`🚀 GraphQL API  →  http://localhost:${port}/graphql`);
     console.log(`📊 Playground   →  http://localhost:${port}/graphql`);
+    console.log(`🔒 CORS origins →  ${ALLOWED_ORIGINS.join(", ")}`);
   });
 }
 
-startServer().catch(console.error);
+startServer().catch(console.error);

@@ -999,6 +999,9 @@ async function startServer() {
     resolvers,
     introspection: process.env.NODE_ENV !== "production",
     context: buildContext,
+    // Disable automatic persisted queries to prevent DoS via unbounded cache
+    // See: https://go.apollo.dev/s/cache-backends
+    persistedQueries: false,
   });
 
   await server.start();

@@ -242,7 +242,7 @@ function HomePage() {
 const pageStyle: CSSProperties = {
   minHeight: "100vh", background: "#0A0A0F", color: "#fff",
   display: "flex", flexDirection: "column", alignItems: "center",
-  padding: "60px 24px", position: "relative", overflow: "hidden",
+  padding: "60px 16px", position: "relative", overflow: "hidden",
 };
 
 const bgGrid: CSSProperties = {
@@ -258,9 +258,10 @@ const bgGlow: CSSProperties = {
 
 const navStyle: CSSProperties = {
   position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-  padding: "12px 28px", display: "flex", alignItems: "center", justifyContent: "space-between",
+  padding: "10px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
   background: "rgba(10,10,15,.8)", backdropFilter: "blur(16px)",
   borderBottom: "1px solid rgba(255,255,255,.04)",
+  gap: 8, flexWrap: "wrap",
 };
 
 const signoutBtn: CSSProperties = {
@@ -298,6 +299,7 @@ const secondaryBtn: CSSProperties = {
 const statsRow: CSSProperties = {
   display: "flex", width: "100%", background: "rgba(255,255,255,.02)",
   border: "1px solid rgba(255,255,255,.05)", borderRadius: 14, overflow: "hidden",
+  flexWrap: "wrap",
 };
 
 const gameCard: CSSProperties = {

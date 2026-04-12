@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { ChessBoard } from "../components/ChessBoard";
 import { useChessWebSocket, type GameResult, type ChatMessage } from "../lib/useChessWebSocket";
 import { PieceSVG } from "../lib/piece-svgs";
@@ -459,13 +459,36 @@ function GameRoom() {
     setCurrentTheme(themeName);
   };
 
+  // ── Responsive board sizing ──
+  const [windowWidth, setWindowWidth] = useState(
+    typeof window !== "undefined" ? window.innerWidth : 800
+  );
+  useEffect(() => {
+    const onResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const isMobile = windowWidth < 768;
+  const isTablet = windowWidth >= 768 && windowWidth < 1024;
+
+  // Compute square size so the board fits the viewport width with padding
+  const maxBoardPx = isMobile
+    ? windowWidth - 24  // 12px padding each side
+    : isTablet
+      ? Math.min(windowWidth - 320, 560) // leave room for sidebar
+      : 566; // desktop: 8 * 70 + 6
+  const dynamicSquareSize = Math.floor((maxBoardPx - themeColors.boardBorderWidth * 2) / 8);
+  const clampedSquareSize = Math.max(36, Math.min(dynamicSquareSize, 70));
+  const dynamicPieceSize = Math.floor(clampedSquareSize * 0.82);
+
   const boardTheme = {
     lightSquare: themeColors.lightSquare, darkSquare: themeColors.darkSquare,
     selectedSquare: themeColors.selectedSquare, legalMoveIndicator: themeColors.legalMoveIndicator,
     lastMoveHighlight: themeColors.lastMoveHighlight, checkHighlight: themeColors.checkHighlight,
-    boardBorder: themeColors.boardBorder, boardBorderWidth: 3,
+    boardBorder: themeColors.boardBorder, boardBorderWidth: isMobile ? 2 : 3,
     boardShadow: `0 0 50px ${themeColors.accent}15, 0 20px 60px rgba(0,0,0,.6)`,
-    pieceSize: 58, squareSize: 70,
+    pieceSize: dynamicPieceSize, squareSize: clampedSquareSize,
     coordinateColor: themeColors.accent, coordinateFontFamily: "'Inter', sans-serif",
   };
 
@@ -507,7 +530,7 @@ function GameRoom() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0A0A0F", color: "#fff", position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 20px" }}>
+    <div style={{ minHeight: "100vh", background: "#0A0A0F", color: "#fff", position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", padding: isMobile ? "12px 8px" : "24px 20px" }}>
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(rgba(16,185,129,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(16,185,129,.015) 1px,transparent 1px)", backgroundSize: "60px 60px" }} />
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 30% 40%,rgba(16,185,129,.04) 0%,transparent 55%)" }} />
 
@@ -532,7 +555,14 @@ function GameRoom() {
       {/* Game Started Animation */}
       <GameStartOverlay ready={game.bothPlayersReady} />
 
-      <div style={{ display: "flex", gap: 32, alignItems: "flex-start", position: "relative", zIndex: 1, flexWrap: "wrap", justifyContent: "center", animation: "fadeIn .4s ease" }}>
+      <div style={{
+        display: "flex", gap: isMobile ? 12 : 32,
+        alignItems: isMobile ? "center" : "flex-start",
+        flexDirection: isMobile ? "column" : "row",
+        position: "relative", zIndex: 1, flexWrap: "wrap", justifyContent: "center",
+        animation: "fadeIn .4s ease", width: isMobile ? "100%" : undefined,
+        padding: isMobile ? "0 4px" : undefined,
+      }}>
         {/* Board column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
           <div style={{ width: boardW }}>
@@ -554,7 +584,11 @@ function GameRoom() {
         </div>
 
         {/* Sidebar */}
-        <div style={{ width: 280, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{
+          width: isMobile ? "100%" : 280,
+          maxWidth: isMobile ? undefined : 280,
+          display: "flex", flexDirection: "column", gap: isMobile ? 8 : 12,
+        }}>
 
           {/* Header card */}
           <div style={{ padding: "16px 18px", background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)", borderRadius: 10 }}>
@@ -604,8 +638,8 @@ function GameRoom() {
           {/* Move history */}
           <div style={{
             flex: 1, background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)",
-            borderRadius: 10, padding: 14, display: "flex", flexDirection: "column",
-            minHeight: 240, maxHeight: 340,
+            borderRadius: 10, padding: isMobile ? 10 : 14, display: "flex", flexDirection: "column",
+            minHeight: isMobile ? 140 : 240, maxHeight: isMobile ? 200 : 340,
           }}>
             <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
               <div style={{ width: 28 }} />

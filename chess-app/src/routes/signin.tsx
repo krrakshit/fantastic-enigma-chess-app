@@ -233,7 +233,7 @@ function Field({ label, id, type, placeholder, value, onChange, autoComplete }: 
 const page: CSSProperties = {
   minHeight: "100vh", background: "#0A0A0F", color: "#fff",
   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-  padding: "48px 20px", position: "relative", overflow: "hidden",
+  padding: "48px 14px", position: "relative", overflow: "hidden",
 };
 
 const card: CSSProperties = {

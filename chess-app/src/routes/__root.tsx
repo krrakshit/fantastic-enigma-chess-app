@@ -6,8 +6,8 @@ import {
 import appCss from "../styles.css?url";
 import { WebSocketProvider } from "../lib/websocket-context";
 import { AuthProvider } from "../lib/auth-context";
-import { Analytics } from "@vercel/analytics/next"
-import { SpeedInsights } from "@vercel/speed-insights/next"
+import { Analytics } from "@vercel/analytics/react"
+import { SpeedInsights } from "@vercel/speed-insights/react"
 
 export const Route = createRootRoute({
   head: () => ({

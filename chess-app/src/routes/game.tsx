@@ -425,13 +425,12 @@ const backToMenuBtn: CSSProperties = {
 const pageStyle: CSSProperties = {
   minHeight: "100vh", background: "#0A0A0F", color: "#fff",
   display: "flex", alignItems: "center", justifyContent: "center",
-  padding: "40px 12px", position: "relative", overflow: "hidden",
+  padding: "40px 20px", position: "relative", overflow: "hidden",
 };
 
 const card: CSSProperties = {
   background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)",
-  borderRadius: 16, padding: "28px clamp(20px, 5vw, 36px)", boxShadow: "0 24px 64px rgba(0,0,0,.5)",
-  width: "100%", maxWidth: 420,
+  borderRadius: 16, padding: "32px 36px", boxShadow: "0 24px 64px rgba(0,0,0,.5)",
 };
 
 const backLink: CSSProperties = {

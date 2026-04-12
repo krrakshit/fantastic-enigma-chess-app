@@ -338,7 +338,7 @@ function getPasswordStrength(pw: string): { score: number; label: string; color:
 const page: CSSProperties = {
   minHeight: "100vh", background: "#0A0A0F", color: "#fff",
   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-  padding: "48px 14px", position: "relative", overflow: "hidden",
+  padding: "48px 20px", position: "relative", overflow: "hidden",
 };
 const card: CSSProperties = {
   background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)",

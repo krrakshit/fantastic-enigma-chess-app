@@ -105,6 +105,7 @@ function DroppableSquare({
   showCoords,
   row,
   col,
+  onClick,
 }: {
   square: string;
   isLight: boolean;
@@ -117,6 +118,7 @@ function DroppableSquare({
   showCoords: boolean;
   row: number;
   col: number;
+  onClick?: (square: string) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: square });
 
@@ -135,10 +137,11 @@ function DroppableSquare({
     position: "relative",
     transition: "background-color 0.15s ease",
     boxShadow: isOver ? `inset 0 0 0 3px ${theme.selectedSquare}` : undefined,
+    cursor: (isLegalMove || children) ? "pointer" : "default",
   };
 
   return (
-    <div ref={setNodeRef} style={squareStyle}>
+    <div ref={setNodeRef} style={squareStyle} onClick={() => onClick?.(square)}>
       {children}
       {isLegalMove && (
         <div
@@ -305,6 +308,44 @@ export function ChessBoard({
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
+  // Click handler for selecting pieces and making moves
+  const handleSquareClick = useCallback(
+    (square: string) => {
+      const sq = square as Square;
+
+      // If a piece is already selected and the clicked square is a legal target, make the move
+      if (selectedSquare && legalTargets.includes(sq)) {
+        if (disabled) return;
+        if (game.isPromoting(selectedSquare, sq)) {
+          setPromotion({ from: selectedSquare, to: sq });
+        } else {
+          game.makeMove(selectedSquare, sq);
+        }
+        setSelectedSquare(null);
+        setLegalTargets([]);
+        return;
+      }
+
+      // Check if the clicked square has a piece belonging to the current player
+      const clickedPiece = game.board.flat().find((s) => s.square === sq)?.piece;
+      if (clickedPiece && clickedPiece.color === game.turn) {
+        // Select the piece (or deselect if clicking the same square)
+        if (selectedSquare === sq) {
+          setSelectedSquare(null);
+          setLegalTargets([]);
+        } else {
+          setSelectedSquare(sq);
+          setLegalTargets(game.legalMoves(sq));
+        }
+      } else {
+        // Clicked on empty square or opponent's piece (not a legal target) — deselect
+        setSelectedSquare(null);
+        setLegalTargets([]);
+      }
+    },
+    [game, disabled, selectedSquare, legalTargets],
+  );
+
   const handleDragStart = useCallback(
     (event: DragStartEvent) => {
       if (disabled) return;
@@ -421,6 +462,7 @@ export function ChessBoard({
                     showCoords={showCoordinates}
                     row={flipped ? 7 - rowIdx : rowIdx}
                     col={flipped ? 7 - colIdx : colIdx}
+                    onClick={handleSquareClick}
                   >
                     {sq.piece && (
                       <DraggablePiece

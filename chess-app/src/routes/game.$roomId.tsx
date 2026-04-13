@@ -38,8 +38,12 @@ function formatMoveTime(ms: number): string {
 // ── Move History ──────────────────────────────────────────────────────────────
 
 function MoveHistory({ moves, moveTimes }: { moves: Move[]; moveTimes: number[] }) {
-  const endRef = useRef<HTMLDivElement>(null);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [moves.length]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (moves.length > 0 && containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
+    }
+  }, [moves.length]);
 
   type Pair = { white?: Move; black?: Move; whiteTime?: number; blackTime?: number; num: number };
   const pairs: Pair[] = [];
@@ -49,7 +53,7 @@ function MoveHistory({ moves, moveTimes }: { moves: Move[]; moveTimes: number[] 
   });
 
   return (
-    <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
+    <div ref={containerRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
       {pairs.length === 0 && (
         <p style={{ textAlign: "center", color: "#374151", fontSize: ".78rem", fontStyle: "italic", marginTop: 16 }}>
           Game not started yet
@@ -78,8 +82,7 @@ function MoveHistory({ moves, moveTimes }: { moves: Move[]; moveTimes: number[] 
           </span>
         </div>
       ))}
-      <div ref={endRef} />
-    </div>
+      </div>
   );
 }
 
@@ -425,6 +428,14 @@ function GameRoom() {
   const [loading, setLoading] = useState(true);
   const [wasRestored, setWasRestored] = useState(false);
 
+  // Dynamic board sizing based on viewport
+  const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
+  useEffect(() => {
+    const onResize = () => setViewportHeight(window.innerHeight);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   useEffect(() => {
     const storedState = localStorage.getItem("chessGameState");
     const storedData = localStorage.getItem("gameData");
@@ -459,13 +470,18 @@ function GameRoom() {
     setCurrentTheme(themeName);
   };
 
+  // Compute board size to fit viewport: subtract padding (48px), player strips (~100px), gaps (~20px)
+  const maxBoardHeight = viewportHeight - 168;
+  const computedSquareSize = Math.min(68, Math.max(40, Math.floor(maxBoardHeight / 8)));
+  const computedPieceSize = Math.round(computedSquareSize * 0.82);
+
   const boardTheme = {
     lightSquare: themeColors.lightSquare, darkSquare: themeColors.darkSquare,
     selectedSquare: themeColors.selectedSquare, legalMoveIndicator: themeColors.legalMoveIndicator,
     lastMoveHighlight: themeColors.lastMoveHighlight, checkHighlight: themeColors.checkHighlight,
     boardBorder: themeColors.boardBorder, boardBorderWidth: 3,
     boardShadow: `0 0 50px ${themeColors.accent}15, 0 20px 60px rgba(0,0,0,.6)`,
-    pieceSize: 58, squareSize: 70,
+    pieceSize: computedPieceSize, squareSize: computedSquareSize,
     coordinateColor: themeColors.accent, coordinateFontFamily: "'Inter', sans-serif",
   };
 
@@ -507,7 +523,7 @@ function GameRoom() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0A0A0F", color: "#fff", position: "relative", overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px 20px" }}>
+    <div style={{ minHeight: "100vh", background: "#0A0A0F", color: "#fff", position: "relative", overflow: "hidden", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "16px 20px" }}>
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(rgba(16,185,129,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(16,185,129,.015) 1px,transparent 1px)", backgroundSize: "60px 60px" }} />
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 30% 40%,rgba(16,185,129,.04) 0%,transparent 55%)" }} />
 
@@ -532,9 +548,9 @@ function GameRoom() {
       {/* Game Started Animation */}
       <GameStartOverlay ready={game.bothPlayersReady} />
 
-      <div style={{ display: "flex", gap: 32, alignItems: "flex-start", position: "relative", zIndex: 1, flexWrap: "wrap", justifyContent: "center", animation: "fadeIn .4s ease" }}>
+      <div style={{ display: "flex", gap: 24, alignItems: "flex-start", position: "relative", zIndex: 1, justifyContent: "center", animation: "fadeIn .4s ease" }}>
         {/* Board column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center", flexShrink: 0 }}>
           <div style={{ width: boardW }}>
             <PlayerStrip label={topIsMe ? "You" : "Opponent"} id={topId} color={topColor}
               isActive={game.turn === topColor} captures={topCaptures}
@@ -554,7 +570,7 @@ function GameRoom() {
         </div>
 
         {/* Sidebar */}
-        <div style={{ width: 280, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ width: 260, display: "flex", flexDirection: "column", gap: 10, maxHeight: `${viewportHeight - 48}px`, overflowY: "auto" }}>
 
           {/* Header card */}
           <div style={{ padding: "16px 18px", background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)", borderRadius: 10 }}>

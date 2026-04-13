@@ -1,21 +1,24 @@
 import { Elysia, t } from "elysia";
 import { createClient } from "redis";
 import { Chess } from "chess.js";
+import { createLogger } from "../../logger/index.mjs";
+
+const log = createLogger("ws-elysia-backend");
 
 const redisClient = createClient({ url: process.env.REDIS_URL ?? "redis://localhost:6379" });
 async function initializeRedis() {
   try {
     redisClient.on("error", (err: Error) => {
-      console.error("Redis Client Error:", err);
+      log.error("Redis Client Error", { error: err.message });
     });
 
     redisClient.on("connect", () => {
-      console.log("✅ Connected to Redis");
+      log.info("✅ Connected to Redis");
     });
 
     await redisClient.connect();
   } catch (error) {
-    console.error("❌ Failed to connect to Redis:", error);
+    log.error("❌ Failed to connect to Redis", { error: String(error) });
   }
 }
  await initializeRedis();
@@ -131,9 +134,10 @@ function endGame(
     ? room.moves.filter((m) => m.playerID === runnerup).reduce((s, m) => s + m.points, 0)
     : 0;
 
-  console.log(
-    `Game over [${resultType}] in room ${room.roomId}: Winner=${winner ?? "none"} (${winnerPoints}pts), Runnerup=${runnerup ?? "none"} (${runnerupPoints}pts)`,
-  );
+  log.info(`Game over [${resultType}]`, {
+    roomId: room.roomId, winner: winner ?? "none", runnerup: runnerup ?? "none",
+    winnerPoints, runnerupPoints, resultType,
+  });
 
   const payload = {
     winner, runnerup, winnerPoints, runnerupPoints,
@@ -154,7 +158,7 @@ function endGame(
   // Trigger analysis pre-cache (only for decisive registered games)
   if (!room.isGuestGame && winner) {
     setTimeout(() => {
-      console.log(`🔬 Triggering analysis pre-cache for room ${room.roomId}...`);
+      log.info(`🔬 Triggering analysis pre-cache`, { roomId: room.roomId });
       fetch(`${process.env.MAIN_BACKEND_URL ?? "http://localhost:4000"}/graphql`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -170,10 +174,10 @@ function endGame(
       })
         .then((res) => res.json())
         .then((data: any) => {
-          if (data.errors) console.error(`⚠ Analysis pre-cache failed for room ${room.roomId}:`, data.errors[0]?.message);
-          else console.log(`✅ Analysis pre-cached for room ${room.roomId}`);
+          if (data.errors) log.error(`⚠ Analysis pre-cache failed`, { roomId: room.roomId, error: data.errors[0]?.message });
+          else log.info(`✅ Analysis pre-cached`, { roomId: room.roomId });
         })
-        .catch((err: any) => console.error(`⚠ Analysis pre-cache request failed:`, err.message));
+        .catch((err: any) => log.error(`⚠ Analysis pre-cache request failed`, { error: err.message }));
     }, 2000);
   }
 
@@ -206,12 +210,12 @@ const app = new Elysia()
     beforeHandle({ request }) {
       const origin = request.headers.get("origin");
       if (!isOriginAllowed(origin)) {
-        console.log(`🚫 Rejected WebSocket connection from origin: ${origin ?? "none"}`);
+        log.warn(`🚫 Rejected WebSocket connection`, { origin: origin ?? "none" });
         return new Response("Forbidden: origin not allowed", { status: 403 });
       }
     },
     open(ws) {
-      console.log("Player connected:");
+      log.ws("open", { message: "Player connected" });
       sendMessage(ws, "connected", {
         status: "connected_to_server",
       });
@@ -221,10 +225,10 @@ const app = new Elysia()
         // Bun's ws gives us the raw data; parse it
         const message: Message =
           typeof data === "string" ? JSON.parse(data) : data;
-        console.log("Received message:", message);
+        log.ws("message", { content: typeof message.content === "string" ? message.content : "object", uid: message.uid });
 
         if (message.content === "start") {
-          console.log(`Player ${message.uid} wants to start a game`);
+          log.info(`Player wants to start a game`, { uid: message.uid });
 
           // Store connection mapping
           playerConnections.set(message.uid, ws);
@@ -242,7 +246,7 @@ const app = new Elysia()
             };
             roomQueue.push(newRoom);
             activeRooms.set(roomId, newRoom);
-            console.log(`Room created: ${roomId} for player ${message.uid}`);
+            log.info(`Room created`, { roomId, uid: message.uid });
 
             // Send acknowledgment to player 1
             sendMessage(ws, "room_created", {
@@ -255,9 +259,7 @@ const app = new Elysia()
             existingRoom.player2Id = message.uid;
             existingRoom.player2Socket = ws;
 
-            console.log(
-              `Room ${existingRoom.roomId} matched: Player1=${existingRoom.player1Id}, Player2=${existingRoom.player2Id}`,
-            );
+            log.info(`Room matched`, { roomId: existingRoom.roomId, player1Id: existingRoom.player1Id, player2Id: existingRoom.player2Id });
 
             // Send room details to player 2
             sendMessage(ws, "room_matched", {
@@ -289,16 +291,16 @@ const app = new Elysia()
                 }),
               );
             } else {
-              console.log(`🎭 Guest game — skipping Redis persistence for room ${existingRoom.roomId}`);
+              log.info(`🎭 Guest game — skipping Redis persistence`, { roomId: existingRoom.roomId });
             }
 
-            console.log(`Match ready: ${existingRoom.roomId}`);
+            log.info(`Match ready`, { roomId: existingRoom.roomId });
           }
         }
 
         // ── Create private room (play with friend) ────────────────────────
         if (message.content === "create_room") {
-          console.log(`Player ${message.uid} wants to create a private room`);
+          log.info(`Player wants to create a private room`, { uid: message.uid });
 
           playerConnections.set(message.uid, ws);
 
@@ -314,7 +316,7 @@ const app = new Elysia()
           };
           activeRooms.set(roomId, newRoom);
           privateRooms.set(code, newRoom);
-          console.log(`Private room created: ${roomId} (code: ${code}) for player ${message.uid}`);
+          log.info(`Private room created`, { roomId, code, uid: message.uid });
 
           sendMessage(ws, "private_room_created", {
             roomId,
@@ -326,7 +328,7 @@ const app = new Elysia()
         // ── Join private room (play with friend) ──────────────────────────
         if (message.content === "join_room") {
           const code = (message.code ?? "").toUpperCase().trim();
-          console.log(`Player ${message.uid} wants to join private room with code: ${code}`);
+          log.info(`Player wants to join private room`, { uid: message.uid, code });
 
           if (!code) {
             sendMessage(ws, "error", { message: "Room code is required" });
@@ -358,9 +360,7 @@ const app = new Elysia()
             room.isGuestGame = true;
           }
 
-          console.log(
-            `Private room ${room.roomId} (code: ${code}) matched: Player1=${room.player1Id}, Player2=${room.player2Id}`,
-          );
+          log.info(`Private room matched`, { roomId: room.roomId, code, player1Id: room.player1Id, player2Id: room.player2Id });
 
           // Notify player 2 (joiner)
           sendMessage(ws, "room_matched", {
@@ -387,12 +387,12 @@ const app = new Elysia()
               }),
             );
           } else {
-            console.log(`🎭 Guest game — skipping Redis persistence for private room ${room.roomId}`);
+             log.info(`🎭 Guest game — skipping Redis persistence for private room`, { roomId: room.roomId });
           }
 
           // Clean up from private rooms map (code no longer needed)
           privateRooms.delete(code);
-          console.log(`Private match ready: ${room.roomId}`);
+          log.info(`Private match ready`, { roomId: room.roomId });
         }
 
         // ── Resign ────────────────────────────────────────────────────────
@@ -404,7 +404,7 @@ const app = new Elysia()
           if (!isP1 && !isP2) { sendMessage(ws, "error", { message: "Player not in room" }); return; }
           const winner = isP1 ? room.player2Id! : room.player1Id;
           const loser = message.uid;
-          console.log(`Player ${loser} resigned in room ${room.roomId}`);
+          log.info(`Player resigned`, { uid: loser, roomId: room.roomId });
           endGame(room, winner, loser, "resign");
         }
 
@@ -419,7 +419,7 @@ const app = new Elysia()
           room.drawOfferedBy = message.uid;
           const opponentSocket = isP1 ? room.player2Socket : room.player1Socket;
           if (opponentSocket) sendMessage(opponentSocket, "draw_offered", { roomId: room.roomId, offeredBy: message.uid });
-          console.log(`Player ${message.uid} offered a draw in room ${room.roomId}`);
+          log.info(`Player offered a draw`, { uid: message.uid, roomId: room.roomId });
         }
 
         // ── Draw accept ───────────────────────────────────────────────────
@@ -428,7 +428,7 @@ const app = new Elysia()
           if (!room) { sendMessage(ws, "error", { message: "Room not found" }); return; }
           if (!room.drawOfferedBy) { sendMessage(ws, "error", { message: "No draw offer pending" }); return; }
           if (room.drawOfferedBy === message.uid) { sendMessage(ws, "error", { message: "You cannot accept your own draw offer" }); return; }
-          console.log(`Draw accepted in room ${room.roomId}`);
+          log.info(`Draw accepted`, { roomId: room.roomId });
           endGame(room, null, null, "draw_agreement");
         }
 
@@ -441,7 +441,7 @@ const app = new Elysia()
           room.drawOfferedBy = undefined;
           const offererSocket = room.player1Id === offerer ? room.player1Socket : room.player2Socket;
           if (offererSocket) sendMessage(offererSocket, "draw_declined", { roomId: room.roomId });
-          console.log(`Draw declined in room ${room.roomId}`);
+          log.info(`Draw declined`, { roomId: room.roomId });
         }
 
         // ── Timeout ───────────────────────────────────────────────────────
@@ -455,7 +455,7 @@ const app = new Elysia()
           // So the reporter is the winner
           const winner = message.uid;
           const loser = isP1 ? room.player2Id! : room.player1Id;
-          console.log(`Player ${loser} timed out in room ${room.roomId}`);
+          log.info(`Player timed out`, { uid: loser, roomId: room.roomId });
           endGame(room, winner, loser, "timeout");
         }
 
@@ -479,7 +479,7 @@ const app = new Elysia()
             sendMessage(ws, "error", { message: "Opponent is no longer connected." });
             ended.rematchOfferedBy = undefined;
           }
-          console.log(`♻ Rematch offered by ${message.uid} in ended room ${oldRoomId}`);
+          log.info(`♻ Rematch offered`, { uid: message.uid, oldRoomId });
         }
 
         // ── Rematch accept ─────────────────────────────────────────────────
@@ -509,7 +509,7 @@ const app = new Elysia()
             chess: new Chess(), moves: [], isGuestGame: ended.isGuestGame,
           };
           activeRooms.set(newRoomId, newRoom);
-          console.log(`♻ Rematch created: ${newRoomId} (from ${oldRoomId}) — P1=${newP1Id}(W), P2=${newP2Id}(B)`);
+          log.info(`♻ Rematch created`, { newRoomId, oldRoomId, player1Id: newP1Id, player2Id: newP2Id });
 
           const rematchPayload = { roomId: newRoomId, player1Id: newP1Id, player2Id: newP2Id };
           sendMessage(p1Socket, "rematch_ready", rematchPayload);
@@ -531,7 +531,7 @@ const app = new Elysia()
           ended.rematchOfferedBy = undefined;
           const offererSocket = playerConnections.get(offererId);
           if (offererSocket) sendMessage(offererSocket, "rematch_declined", { roomId: oldRoomId });
-          console.log(`♻ Rematch declined by ${message.uid} in ended room ${oldRoomId}`);
+          log.info(`♻ Rematch declined`, { uid: message.uid, oldRoomId });
         }
         if (message.content === "move") {
           const move = message.move!;
@@ -593,9 +593,7 @@ const app = new Elysia()
               };
               room.moves.push(moveWithPoints);
 
-              console.log(
-                `Move: ${move.from}->${move.to}${promotionPiece ? `=${promotionPiece}` : ""} | pts=${points}`,
-              );
+              log.info(`Move`, { from: move.from, to: move.to, promotion: promotionPiece, points, roomId: move.roomID });
 
               // Relay to opponent (with promotion field so they can apply the move)
               const opponentSocket = isPlayer1
@@ -670,16 +668,14 @@ const app = new Elysia()
           endGame(room, gameOver.Winner, gameOver.Runnerup, "checkmate");
         }
       } catch (error) {
-        console.error("Error parsing message:", error);
+        log.error("Error parsing message", { error: String(error) });
       }
     },
     close(ws) {
-      console.log("Player disconnected");
+      log.ws("close", { message: "Player disconnected" });
     },
   })
   .listen(Number(process.env.PORT ?? 3000));
 
-console.log(
-  `🦊 WebSocket server is running at ${app.server?.hostname}:${app.server?.port}`,
-);
+log.info(`🦊 WebSocket server is running`, { hostname: app.server?.hostname, port: app.server?.port });
   

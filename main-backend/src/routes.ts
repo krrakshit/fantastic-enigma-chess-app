@@ -8,6 +8,9 @@ import {
   getGoogleAuthURL, exchangeGoogleCode, getGoogleUser,
   getGitHubAuthURL, exchangeGitHubCode, getGitHubUser, getGitHubPrimaryEmail,
 } from "./oauth";
+import { createLogger } from "../../logger/index.mjs";
+
+const log = createLogger("main-backend");
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Config — override via env vars in production
@@ -563,7 +566,7 @@ const resolvers = {
       });
 
       if (cachedAnalysis) {
-        console.log(`📦 Returning cached analysis for room ${roomId}`);
+        log.info(`📦 Returning cached analysis`, { roomId });
         return {
           roomID: game.roomID,
           player1: game.player1,
@@ -590,7 +593,7 @@ const resolvers = {
       });
 
       // 6. Call the analysis microservice
-      console.log(`🔬 Running Stockfish analysis for room ${roomId} (${uciMoves.length} moves)...`);
+      log.info(`🔬 Running Stockfish analysis`, { roomId, moveCount: uciMoves.length });
       const response = await fetch(`${ANALYSIS_BACKEND_URL}/analyse`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -632,9 +635,9 @@ const resolvers = {
             },
           },
         });
-        console.log(`💾 Analysis cached for room ${roomId}`);
+        log.info(`💾 Analysis cached`, { roomId });
       } catch (saveErr) {
-        console.error(`⚠ Failed to cache analysis for room ${roomId}:`, saveErr);
+        log.error(`⚠ Failed to cache analysis`, { roomId, error: String(saveErr) });
         // Non-fatal — still return the result
       }
 
@@ -942,6 +945,18 @@ const app = express();
 app.use(cookieParser());
 app.use(express.json());
 
+// ── Request logging middleware (fire-and-forget) ────────────────────────────
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    log.req(req.method, req.path, res.statusCode, Date.now() - start, {
+      origin: req.headers.origin ?? "none",
+      userAgent: req.headers["user-agent"],
+    });
+  });
+  next();
+});
+
 // ── CORS configuration ─────────────────────────────────────────────────────
 // Build the allowlist from CORS_ORIGINS env var (comma-separated).
 // In production, only your frontend domain(s) should be listed.
@@ -970,7 +985,7 @@ const corsOptions: cors.CorsOptions = {
     if (ALLOWED_ORIGINS.includes(origin)) {
       callback(null, true);
     } else {
-      console.warn(`🚫 CORS blocked request from origin: ${origin}`);
+      log.warn(`🚫 CORS blocked request`, { origin });
       callback(new Error(`Origin ${origin} is not allowed by CORS policy.`));
     }
   },
@@ -1015,10 +1030,10 @@ async function startServer() {
 
   const port = Number(process.env.PORT ?? 4000);
   app.listen({ port }, () => {
-    console.log(`🚀 GraphQL API  →  http://localhost:${port}/graphql`);
-    console.log(`📊 Playground   →  http://localhost:${port}/graphql`);
-    console.log(`🔒 CORS origins →  ${ALLOWED_ORIGINS.join(", ")}`);
+    log.info(`🚀 GraphQL API  →  http://localhost:${port}/graphql`);
+    log.info(`📊 Playground   →  http://localhost:${port}/graphql`);
+    log.info(`🔒 CORS origins`, { origins: ALLOWED_ORIGINS });
   });
 }
 
-startServer().catch(console.error);
+startServer().catch((err) => log.error("Failed to start server", { error: String(err) }));

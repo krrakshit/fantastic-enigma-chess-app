@@ -1,6 +1,9 @@
 import "dotenv/config";
 import { createClient } from "redis";
 import { prisma } from "./db";
+import { createLogger } from "../../logger/index.mjs";
+
+const log = createLogger("main-backend");
 
 // Import routes so the GraphQL server starts alongside the queue processor
 import "./routes";
@@ -12,16 +15,16 @@ const redisClient = createClient({
 async function initializeRedis() {
   try {
     redisClient.on("error", (err: Error) => {
-      console.error("Redis Client Error:", err);
+      log.error("Redis Client Error", { error: err.message });
     });
 
     redisClient.on("connect", () => {
-      console.log("✅ Connected to Redis");
+      log.info("✅ Connected to Redis");
     });
 
     await redisClient.connect();
   } catch (error) {
-    console.error("❌ Failed to connect to Redis:", error);
+    log.error("❌ Failed to connect to Redis", { error: String(error) });
   }
 }
 
@@ -35,12 +38,10 @@ async function processqueue() {
       );
       if (result) {
         const data = JSON.parse(result);
-        console.log("Processing data:", data);
+        log.info("Processing queue data", { type: data.type, roomID: data.roomID });
 
         if (data.type === "start") {
-          console.log(
-            `Game started: ${data.roomID} - Player1: ${data.player1Id}, Player2: ${data.player2Id}`,
-          );
+          log.info("Game started", { roomID: data.roomID, player1Id: data.player1Id, player2Id: data.player2Id });
           await prisma.game.create({
             data: {
               roomID: data.roomID,
@@ -48,11 +49,9 @@ async function processqueue() {
               player2ID: data.player2Id,
             },
           });
-          console.log("Game created in DB");
+          log.info("Game created in DB", { roomID: data.roomID });
         } else if (data.type === "move") {
-          console.log(
-            `Move made in room ${data.roomID}: ${data.from} -> ${data.to}${data.promotion ? ` (promotion: ${data.promotion})` : ""}`,
-          );
+          log.info("Move made", { roomID: data.roomID, from: data.from, to: data.to, promotion: data.promotion ?? null });
           await prisma.move.create({
             data: {
               roomID: data.roomID,
@@ -65,9 +64,9 @@ async function processqueue() {
               promotion: data.promotion ?? null,
             },
           });
-          console.log("Move stored in DB");
+          log.info("Move stored in DB", { roomID: data.roomID });
         } else if (data.type === "game_over") {
-          console.log(`Game end for room id: ${data.roomID} [${data.resultType ?? "unknown"}]`);
+          log.info("Game ended", { roomID: data.roomID, resultType: data.resultType ?? "unknown" });
 
           const isDraw = !data.winner;
           const ratingChange = 10; // fixed for now, could be ELO formula
@@ -119,13 +118,14 @@ async function processqueue() {
             }
           }
 
-          console.log(
-            `Game over stored: ${isDraw ? "Draw" : `Winner=${data.winner} (${data.winnerPoints}pts), Runnerup=${data.runnerup} (${data.runnerupPoints}pts)`} [${data.resultType ?? "unknown"}]`,
-          );
+          log.info("Game over stored", {
+            roomID: data.roomID, isDraw, winner: data.winner, runnerup: data.runnerup,
+            winnerPoints: data.winnerPoints, runnerupPoints: data.runnerupPoints, resultType: data.resultType ?? "unknown",
+          });
         }
       }
     } catch (error) {
-      console.error("error while handling queue" + error);
+      log.error("Error while handling queue", { error: String(error) });
     }
   }
 }

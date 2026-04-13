@@ -2,9 +2,22 @@ import { fork } from "child_process";
 import { createRequire } from "module";
 import path from "path";
 import express from "express";
+import { createLogger } from "../logger/index.mjs";
+
+const log = createLogger("game-analyse-backend");
 
 const app = express();
 app.use(express.json());
+
+// ── Request logging middleware (fire-and-forget) ────────────────────────────
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on("finish", () => {
+    log.req(req.method, req.path, res.statusCode, Date.now() - start);
+  });
+  next();
+});
+
 
 const require = createRequire(import.meta.url);
 const stockfishPath = path.join(
@@ -212,10 +225,10 @@ app.post("/analyse", async (req, res) => {
     }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-    console.log(`✅ Analysed ${moves.length} moves in ${elapsed}s (${(elapsed / moves.length * 1000).toFixed(0)}ms/move)`);
+    log.info(`✅ Analysis complete`, { moveCount: moves.length, elapsedSec: elapsed, msPerMove: (elapsed / moves.length * 1000).toFixed(0) });
     res.json({ analysis: results });
   } catch (err) {
-    console.error(err);
+    log.error("Analysis failed", { error: String(err) });
     res.status(500).json({ error: "Analysis failed" });
   }
 });
@@ -234,7 +247,7 @@ app.post("/evaluate", async (req, res) => {
     const result = parseMultiPV(output, numLines);
     res.json(result);
   } catch (err) {
-    console.error(err);
+    log.error("Evaluation failed", { error: String(err) });
     res.status(500).json({ error: "Evaluation failed" });
   }
 });
@@ -245,13 +258,14 @@ sendCommand("uci");
 sendCommand("setoption name Hash value 128");   // 128MB transposition table
 sendCommand("isready");
 
-console.log("⚡ Engine config: Hash=128MB, FullAnalysis=depth12, Evaluate=movetime500ms");
+log.info("⚡ Engine config", { hash: "128MB", fullAnalysisDepth: 12, evaluateMode: "movetime500ms" });
 
 const PORT = Number(7000);
-app.listen(PORT, () => console.log(`♟ Chess analysis server on :${PORT}`));
+app.listen(PORT, () => log.info(`♟ Chess analysis server started`, { port: PORT }));
 
 process.on("SIGINT", () => {
+  log.info("Shutting down engine...");
   sendCommand("quit");
   engine.kill();
-  process.exit();
+  log.close().then(() => process.exit());
 });

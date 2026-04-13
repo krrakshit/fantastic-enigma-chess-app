@@ -21,7 +21,7 @@ async function initializeRedis() {
  await initializeRedis();
 
 // --- Types ---
-type Type = "start" | "join" | "move" | "create_room" | "join_room" | "resign" | "draw_offer" | "draw_accept" | "draw_decline" | "timeout" | GameOver | Chat;
+type Type = "start" | "join" | "move" | "create_room" | "join_room" | "resign" | "draw_offer" | "draw_accept" | "draw_decline" | "timeout" | "rematch" | "rematch_accept" | "rematch_decline" | GameOver | Chat;
 type Chat = {
   roomID : string,
   message : string,
@@ -113,6 +113,10 @@ function getPieceValue(piece: string): number {
   return values[piece.toLowerCase()] ?? 0;
 }
 
+// Store recently-ended rooms for rematch — only keep player IDs, not the full Room/Chess state
+type EndedRoomInfo = { player1Id: string; player2Id: string; isGuestGame: boolean; rematchOfferedBy?: string };
+const endedRooms = new Map<string, EndedRoomInfo>();
+
 /** Centralized game-ending helper — handles notifications, Redis, analysis, cleanup */
 function endGame(
   room: Room,
@@ -173,7 +177,15 @@ function endGame(
     }, 2000);
   }
 
-  // Clean up
+  // Keep lightweight player info for rematch (5 min TTL)
+  endedRooms.set(room.roomId, {
+    player1Id: room.player1Id,
+    player2Id: room.player2Id!,
+    isGuestGame: room.isGuestGame,
+  });
+  setTimeout(() => { endedRooms.delete(room.roomId); }, 5 * 60 * 1000);
+
+  // Clean up from active rooms
   activeRooms.delete(room.roomId);
 }
 
@@ -447,6 +459,80 @@ const app = new Elysia()
           endGame(room, winner, loser, "timeout");
         }
 
+        // ── Rematch offer ──────────────────────────────────────────────────
+        if (message.content === "rematch") {
+          const oldRoomId = message.roomId;
+          if (!oldRoomId) { sendMessage(ws, "error", { message: "Missing roomId for rematch" }); return; }
+          const ended = endedRooms.get(oldRoomId);
+          if (!ended) { sendMessage(ws, "error", { message: "Game session expired. Please create a new game." }); return; }
+          const isP1 = ended.player1Id === message.uid;
+          const isP2 = ended.player2Id === message.uid;
+          if (!isP1 && !isP2) { sendMessage(ws, "error", { message: "You were not in that game" }); return; }
+          if (ended.rematchOfferedBy) { sendMessage(ws, "error", { message: "A rematch offer is already pending" }); return; }
+
+          ended.rematchOfferedBy = message.uid;
+          const opponentId = isP1 ? ended.player2Id : ended.player1Id;
+          const opponentSocket = playerConnections.get(opponentId);
+          if (opponentSocket) {
+            sendMessage(opponentSocket, "rematch_offered", { roomId: oldRoomId, offeredBy: message.uid });
+          } else {
+            sendMessage(ws, "error", { message: "Opponent is no longer connected." });
+            ended.rematchOfferedBy = undefined;
+          }
+          console.log(`♻ Rematch offered by ${message.uid} in ended room ${oldRoomId}`);
+        }
+
+        // ── Rematch accept ─────────────────────────────────────────────────
+        if (message.content === "rematch_accept") {
+          const oldRoomId = message.roomId;
+          if (!oldRoomId) { sendMessage(ws, "error", { message: "Missing roomId" }); return; }
+          const ended = endedRooms.get(oldRoomId);
+          if (!ended) { sendMessage(ws, "error", { message: "Game session expired." }); return; }
+          if (!ended.rematchOfferedBy) { sendMessage(ws, "error", { message: "No rematch offer pending" }); return; }
+          if (ended.rematchOfferedBy === message.uid) { sendMessage(ws, "error", { message: "You cannot accept your own offer" }); return; }
+
+          // Swap colors: old player1 (white) becomes player2 (black) and vice versa
+          const newRoomId = generateRoomId();
+          const newP1Id = ended.player2Id;   // old black → new white
+          const newP2Id = ended.player1Id;    // old white → new black
+          const p1Socket = playerConnections.get(newP1Id);
+          const p2Socket = playerConnections.get(newP2Id);
+
+          if (!p1Socket || !p2Socket) {
+            sendMessage(ws, "error", { message: "Opponent disconnected. Please start a new game." });
+            return;
+          }
+
+          const newRoom: Room = {
+            roomId: newRoomId, player1Id: newP1Id, player1Socket: p1Socket,
+            player2Id: newP2Id, player2Socket: p2Socket,
+            chess: new Chess(), moves: [], isGuestGame: ended.isGuestGame,
+          };
+          activeRooms.set(newRoomId, newRoom);
+          console.log(`♻ Rematch created: ${newRoomId} (from ${oldRoomId}) — P1=${newP1Id}(W), P2=${newP2Id}(B)`);
+
+          const rematchPayload = { roomId: newRoomId, player1Id: newP1Id, player2Id: newP2Id };
+          sendMessage(p1Socket, "rematch_ready", rematchPayload);
+          sendMessage(p2Socket, "rematch_ready", rematchPayload);
+
+          if (!newRoom.isGuestGame) {
+            redisClient.lPush("chess", JSON.stringify({ type: "start", roomID: newRoomId, player1Id: newP1Id, player2Id: newP2Id }));
+          }
+          endedRooms.delete(oldRoomId);
+        }
+
+        // ── Rematch decline ────────────────────────────────────────────────
+        if (message.content === "rematch_decline") {
+          const oldRoomId = message.roomId;
+          if (!oldRoomId) { sendMessage(ws, "error", { message: "Missing roomId" }); return; }
+          const ended = endedRooms.get(oldRoomId);
+          if (!ended || !ended.rematchOfferedBy) { return; }
+          const offererId = ended.rematchOfferedBy;
+          ended.rematchOfferedBy = undefined;
+          const offererSocket = playerConnections.get(offererId);
+          if (offererSocket) sendMessage(offererSocket, "rematch_declined", { roomId: oldRoomId });
+          console.log(`♻ Rematch declined by ${message.uid} in ended room ${oldRoomId}`);
+        }
         if (message.content === "move") {
           const move = message.move!;
           const room = activeRooms.get(move.roomID);

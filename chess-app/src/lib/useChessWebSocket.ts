@@ -140,6 +140,18 @@ export interface MultiplayerGameState extends ChessGameState {
   exportPGN: () => string;
   /** Whether both players are connected and the game is live */
   bothPlayersReady: boolean;
+  /** Request a rematch with the same opponent (colors swapped) */
+  requestRematch: () => void;
+  /** Accept a pending rematch offer from opponent */
+  acceptRematch: () => void;
+  /** Decline a pending rematch offer from opponent */
+  declineRematch: () => void;
+  /** Whether opponent offered a rematch */
+  rematchOffered: boolean;
+  /** Whether we sent a rematch offer (waiting for response) */
+  rematchOfferSent: boolean;
+  /** Set when server confirms rematch — new room ID to navigate to */
+  rematchRoomId: string | null;
 }
 
 export interface ChatMessage {
@@ -246,6 +258,9 @@ export function useChessWebSocket(
   const [drawOffered, setDrawOffered] = useState(false);   // opponent offered
   const [drawOfferSent, setDrawOfferSent] = useState(false); // we offered
   const timeoutSentRef = useRef(false); // prevent duplicate timeout reports
+  const [rematchRoomId, setRematchRoomId] = useState<string | null>(null);
+  const [rematchOffered, setRematchOffered] = useState(false);   // opponent offered rematch
+  const [rematchOfferSent, setRematchOfferSent] = useState(false); // we offered rematch
 
   // ── Chess clock state ─────────────────────────────────────────────────
   const _getSavedTimes = () => {
@@ -517,6 +532,25 @@ export function useChessWebSocket(
         setErrorMessage(msg.message ?? "Server error");
         // Auto-clear after 3 s
         setTimeout(() => setErrorMessage(null), 3000);
+      } else if (msg.type === "rematch_ready") {
+        // Server created a new room for the rematch
+        const pid = roomData?.currentPlayerId ?? "";
+        localStorage.setItem("gameData", JSON.stringify({
+          roomId: msg.roomId,
+          player1Id: msg.player1Id,
+          player2Id: msg.player2Id,
+          currentPlayerId: pid,
+        }));
+        localStorage.removeItem("chessGameState");
+        setRematchRoomId(msg.roomId);
+      } else if (msg.type === "rematch_offered") {
+        // Opponent wants a rematch
+        setRematchOffered(true);
+        playNotify();
+      } else if (msg.type === "rematch_declined") {
+        // Our rematch offer was declined
+        setRematchOfferSent(false);
+        playError();
       }
     });
 
@@ -639,6 +673,25 @@ export function useChessWebSocket(
     setDrawOffered(false);
   }, [roomData, send]);
 
+  // ── rematch offer / accept / decline ──────────────────────────────────
+  const requestRematch = useCallback(() => {
+    if (!roomData || rematchOfferSent) return;
+    setRematchOfferSent(true);
+    send({ content: "rematch", uid: roomData.currentPlayerId, roomId: roomData.roomId });
+  }, [roomData, send, rematchOfferSent]);
+
+  const acceptRematch = useCallback(() => {
+    if (!roomData) return;
+    send({ content: "rematch_accept", uid: roomData.currentPlayerId, roomId: roomData.roomId });
+    setRematchOffered(false);
+  }, [roomData, send]);
+
+  const declineRematch = useCallback(() => {
+    if (!roomData) return;
+    send({ content: "rematch_decline", uid: roomData.currentPlayerId, roomId: roomData.roomId });
+    setRematchOffered(false);
+  }, [roomData, send]);
+
   // ── PGN export ──────────────────────────────────────────────────────────
   const exportPGN = useCallback((): string => {
     const headers: string[] = [];
@@ -726,5 +779,11 @@ export function useChessWebSocket(
     drawOfferSent,
     exportPGN,
     bothPlayersReady,
+    requestRematch,
+    acceptRematch,
+    declineRematch,
+    rematchOffered,
+    rematchOfferSent,
+    rematchRoomId,
   };
 }

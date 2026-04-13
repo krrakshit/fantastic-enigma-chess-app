@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { ChessBoard } from "../components/ChessBoard";
 import { useChessWebSocket, type GameResult, type ChatMessage } from "../lib/useChessWebSocket";
@@ -9,8 +9,14 @@ import { getMuted, setMuted } from "../lib/sounds";
 import { getThemeColors, getThemeList, saveTheme, getSavedTheme } from "../lib/board-themes";
 
 export const Route = createFileRoute("/game/$roomId")({
-  component: GameRoom,
+  component: GameRoomWrapper,
 });
+
+/** Wrapper to force full remount when roomId changes (e.g. rematch) */
+function GameRoomWrapper() {
+  const { roomId } = Route.useParams();
+  return <GameRoom key={roomId} />;
+}
 
 const P = "#10B981";
 
@@ -192,9 +198,12 @@ function PlayerStrip({ label, id, color, isActive, captures, points, timeMs }: {
 
 // ── Game Over Overlay ─────────────────────────────────────────────────────────
 
-function GameOverOverlay({ status, turn, myColor, gameResult, myId, myPoints, opponentPoints, gameStartedAt }: {
+function GameOverOverlay({ status, turn, myColor, gameResult, myId, myPoints, opponentPoints, gameStartedAt,
+  onRematch, onAcceptRematch, onDeclineRematch, rematchOfferSent, rematchOffered }: {
   status: string; turn: string; myColor: string | null; gameResult: GameResult | null;
   myId: string; myPoints: number; opponentPoints: number; gameStartedAt: string | null;
+  onRematch: () => void; onAcceptRematch: () => void; onDeclineRematch: () => void;
+  rematchOfferSent: boolean; rematchOffered: boolean;
 }) {
   const { send } = useWebSocket();
   const hasSentGameOver = useRef(false);
@@ -307,13 +316,46 @@ function GameOverOverlay({ status, turn, myColor, gameResult, myId, myPoints, op
           </div>
         )}
 
-        <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
+        {/* Rematch offer incoming from opponent */}
+        {rematchOffered && (
+          <div style={{
+            padding: "12px 16px", borderRadius: 10, marginBottom: 8,
+            background: "rgba(16,185,129,.06)", border: "1px solid rgba(16,185,129,.2)",
+            textAlign: "center",
+          }}>
+            <p style={{ fontSize: ".85rem", color: "#A7F3D0", margin: "0 0 10px", fontWeight: 600 }}>
+              ♻ Opponent wants a rematch!
+            </p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+              <button onClick={onAcceptRematch} style={{
+                padding: "8px 20px", background: `linear-gradient(135deg, ${P}, #34D399)`,
+                color: "#0A0A0F", borderRadius: 8, fontWeight: 700, fontSize: ".85rem",
+                border: "none", cursor: "pointer",
+              }}>✓ Accept</button>
+              <button onClick={onDeclineRematch} style={{
+                padding: "8px 20px", background: "rgba(239,68,68,.1)", border: "1px solid rgba(239,68,68,.25)",
+                color: "#EF4444", borderRadius: 8, fontWeight: 600, fontSize: ".85rem", cursor: "pointer",
+              }}>✗ Decline</button>
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+          {!rematchOffered && (
+            <button onClick={onRematch} disabled={rematchOfferSent} style={{
+              padding: "10px 24px",
+              background: rematchOfferSent ? "rgba(255,255,255,.04)" : `linear-gradient(135deg, ${P}, #34D399)`,
+              color: rematchOfferSent ? "#6B7280" : "#0A0A0F",
+              borderRadius: 8, fontWeight: 700, fontSize: ".88rem",
+              border: "none", cursor: rematchOfferSent ? "not-allowed" : "pointer", transition: "all .2s",
+            }}>{rematchOfferSent ? "⏳ Waiting for opponent..." : "♻ Rematch"}</button>
+          )}
           <Link to="/game" style={{
-            padding: "10px 24px", background: `linear-gradient(135deg, ${P}, #34D399)`,
-            color: "#0A0A0F", borderRadius: 8, fontWeight: 700, fontSize: ".88rem", textDecoration: "none",
-          }}>Play Again</Link>
-          <Link to="/" style={{
             padding: "10px 24px", border: `1px solid rgba(16,185,129,.2)`, color: P,
+            borderRadius: 8, fontWeight: 600, fontSize: ".88rem", textDecoration: "none",
+          }}>New Game</Link>
+          <Link to="/" style={{
+            padding: "10px 24px", border: `1px solid rgba(255,255,255,.08)`, color: "#6B7280",
             borderRadius: 8, fontWeight: 600, fontSize: ".88rem", textDecoration: "none",
           }}>Home</Link>
         </div>
@@ -454,6 +496,14 @@ function GameRoom() {
   }, [roomId]);
 
   const game = useChessWebSocket(gameData);
+  const navigate = useNavigate();
+
+  // Auto-navigate to new room when rematch is ready
+  useEffect(() => {
+    if (game.rematchRoomId) {
+      navigate({ to: "/game/$roomId", params: { roomId: game.rematchRoomId } });
+    }
+  }, [game.rematchRoomId, navigate]);
 
   const myColor = game.myColor;
   const flipped = myColor === "b";
@@ -529,7 +579,10 @@ function GameRoom() {
 
       <GameOverOverlay status={game.gameStatus} turn={game.turn} myColor={myColor}
         gameResult={game.gameResult} myId={myId} myPoints={game.myPoints}
-        opponentPoints={game.opponentPoints} gameStartedAt={game.gameStartedAt} />
+        opponentPoints={game.opponentPoints} gameStartedAt={game.gameStartedAt}
+        onRematch={game.requestRematch} onAcceptRematch={game.acceptRematch}
+        onDeclineRematch={game.declineRematch} rematchOfferSent={game.rematchOfferSent}
+        rematchOffered={game.rematchOffered} />
 
       {wasRestored && game.connectionStatus === "connected" && (
         <div style={{

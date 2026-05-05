@@ -549,17 +549,21 @@ function GameRoom() {
   };
 
   // Compute board size to fit viewport
-  const maxBoardHeight = viewportHeight - 168;
-  const maxBoardWidth = isMobile ? viewportWidth - 24 : 9999; // 12px padding each side on mobile
-  const maxSquareFromWidth = Math.floor((maxBoardWidth - 6) / 8); // subtract border
-  const computedSquareSize = Math.min(68, Math.max(36, Math.min(Math.floor(maxBoardHeight / 8), maxSquareFromWidth)));
+  const mobilePadding = 8; // 4px each side
+  const navbarHeight = 48;
+  const playerStripHeight = 44; // approximate height of each PlayerStrip
+  const maxBoardHeight = viewportHeight - (isMobile ? navbarHeight + playerStripHeight * 2 + 40 : 168);
+  const maxBoardWidth = isMobile ? viewportWidth - mobilePadding : 9999;
+  const borderW = isMobile ? 2 : 3;
+  const maxSquareFromWidth = Math.floor((maxBoardWidth - borderW * 2) / 8);
+  const computedSquareSize = Math.min(68, Math.max(32, Math.min(Math.floor(maxBoardHeight / 8), maxSquareFromWidth)));
   const computedPieceSize = Math.round(computedSquareSize * 0.82);
 
   const boardTheme = {
     lightSquare: themeColors.lightSquare, darkSquare: themeColors.darkSquare,
     selectedSquare: themeColors.selectedSquare, legalMoveIndicator: themeColors.legalMoveIndicator,
     lastMoveHighlight: themeColors.lastMoveHighlight, checkHighlight: themeColors.checkHighlight,
-    boardBorder: themeColors.boardBorder, boardBorderWidth: 3,
+    boardBorder: themeColors.boardBorder, boardBorderWidth: borderW,
     boardShadow: `0 0 50px ${themeColors.accent}15, 0 20px 60px rgba(0,0,0,.08)`,
     pieceSize: computedPieceSize, squareSize: computedSquareSize,
     coordinateColor: themeColors.accent, coordinateFontFamily: "'Inter', sans-serif",
@@ -631,7 +635,47 @@ function GameRoom() {
       {/* Game Started Animation */}
       <GameStartOverlay ready={game.bothPlayersReady} />
 
-      <div style={{ flex: 1, overflow: isMobile ? "auto" : "hidden", display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 10 : 24, alignItems: isMobile ? "center" : "flex-start", justifyContent: "center", position: "relative", zIndex: 1, animation: "fadeIn .4s ease", width: "100%", padding: isMobile ? "8px 6px" : "16px 20px", overscrollBehavior: "none", WebkitOverflowScrolling: "touch" }}>
+      {/* Navbar */}
+      <nav style={{
+        padding: isMobile ? "12px 14px" : "10px 28px",
+        paddingTop: isMobile ? "max(12px, env(safe-area-inset-top, 12px))" : "10px",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        background: "rgba(250,250,247,.88)", backdropFilter: "blur(16px)",
+        borderBottom: "1px solid rgba(139,115,85,.06)",
+        flexShrink: 0, zIndex: 10,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <Link to="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{
+              width: 30, height: 30, borderRadius: 7,
+              background: `linear-gradient(135deg, ${P}, #40916C)`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: ".9rem", color: "#fff", fontWeight: 800,
+            }}>♛</div>
+            <span style={{ fontWeight: 800, color: "#1A1A1A", fontSize: isMobile ? ".92rem" : "1.05rem", letterSpacing: "-.02em" }}>Chess Arena</span>
+          </Link>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: isMobile ? 10 : 14 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{
+              width: 6, height: 6, borderRadius: "50%",
+              background: game.connectionStatus === "connected" ? P : "#F59E0B",
+              boxShadow: `0 0 5px ${game.connectionStatus === "connected" ? "rgba(45,106,79,.5)" : "rgba(245,158,11,.5)"}`,
+              animation: "pulse 2s infinite",
+            }} />
+            <span style={{ fontSize: ".6rem", fontWeight: 700, letterSpacing: ".1em", color: game.connectionStatus === "connected" ? P : "#F59E0B" }}>
+              {game.connectionStatus === "connected" ? "LIVE" : game.connectionStatus.toUpperCase()}
+            </span>
+          </div>
+          <Link to="/" style={{
+            padding: "5px 12px", borderRadius: 6, border: "1px solid rgba(139,115,85,.1)",
+            background: "transparent", color: "#6B7264", textDecoration: "none",
+            fontSize: ".78rem", fontWeight: 500, transition: "all .2s",
+          }}>Home</Link>
+        </div>
+      </nav>
+
+      <div style={{ flex: 1, overflow: isMobile ? "auto" : "hidden", display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 8 : 24, alignItems: isMobile ? "center" : "flex-start", justifyContent: "center", position: "relative", zIndex: 1, animation: "fadeIn .4s ease", width: "100%", padding: isMobile ? "4px 4px" : "16px 20px", overscrollBehavior: "none", WebkitOverflowScrolling: "touch" }}>
         {/* Board column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center", flexShrink: 0, touchAction: "none" }}>
           <div style={{ width: boardW }}>
@@ -654,32 +698,6 @@ function GameRoom() {
 
         {/* Sidebar */}
         <div style={{ width: isMobile ? Math.min(boardW, viewportWidth - 12) : 260, display: "flex", flexDirection: "column", gap: 10, maxHeight: isMobile ? "none" : `${viewportHeight - 48}px`, overflowY: isMobile ? "visible" : "auto" }}>
-
-          {/* Header card */}
-          {!isMobile && (
-          <div style={{ padding: "16px 18px", background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)", borderRadius: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <Link to="/" style={{ color: "#8B9080", textDecoration: "none", fontSize: ".78rem" }}>← Home</Link>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                <div style={{
-                  width: 6, height: 6, borderRadius: "50%",
-                  background: game.connectionStatus === "connected" ? P : "#F59E0B",
-                  boxShadow: `0 0 5px ${game.connectionStatus === "connected" ? "rgba(45,106,79,.5)" : "rgba(245,158,11,.5)"}`,
-                  animation: "pulse 2s infinite",
-                }} />
-                <span style={{ fontSize: ".6rem", fontWeight: 700, letterSpacing: ".1em", color: game.connectionStatus === "connected" ? P : "#F59E0B" }}>
-                  {game.connectionStatus === "connected" ? "LIVE" : game.connectionStatus.toUpperCase()}
-                </span>
-              </div>
-            </div>
-            <h1 style={{
-              fontSize: "1.2rem", fontWeight: 800, margin: "0 0 2px",
-              background: `linear-gradient(135deg, ${P}, #40916C)`,
-              WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-            }}>Chess Arena</h1>
-            <div style={{ fontSize: ".65rem", color: "#9CA392", fontFamily: "'JetBrains Mono', monospace" }}>Room: {roomId}</div>
-          </div>
-          )}
 
           {/* Status */}
           {!isOver && (

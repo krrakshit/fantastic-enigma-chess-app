@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   DndContext,
   type DragEndEvent,
@@ -6,7 +6,8 @@ import {
   DragOverlay,
   useDraggable,
   useDroppable,
-  PointerSensor,
+  TouchSensor,
+  MouseSensor,
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
@@ -138,6 +139,7 @@ function DroppableSquare({
     transition: "background-color 0.15s ease",
     boxShadow: isOver ? `inset 0 0 0 3px ${theme.selectedSquare}` : undefined,
     cursor: (isLegalMove || children) ? "pointer" : "default",
+    touchAction: "none",
   };
 
   return (
@@ -304,9 +306,22 @@ export function ChessBoard({
     to: Square;
   } | null>(null);
 
+  // Use separate mouse and touch sensors for reliable mobile drag-and-drop.
+  // TouchSensor with a small delay prevents accidental drags when tapping.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 100, tolerance: 5 } }),
   );
+
+  // Prevent body scrolling on mobile while dragging a piece
+  useEffect(() => {
+    if (!activeId) return;
+    const prevent = (e: TouchEvent) => {
+      if (e.cancelable) e.preventDefault();
+    };
+    document.addEventListener("touchmove", prevent, { passive: false });
+    return () => document.removeEventListener("touchmove", prevent);
+  }, [activeId]);
 
   // Click handler for selecting pieces and making moves
   const handleSquareClick = useCallback(
@@ -437,6 +452,9 @@ export function ChessBoard({
             boxShadow: theme.boardShadow,
             lineHeight: 0,
             width: boardSize,
+            touchAction: "none",
+            WebkitUserSelect: "none",
+            userSelect: "none",
             ...style,
           }}
         >

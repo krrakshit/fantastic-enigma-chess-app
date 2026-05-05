@@ -478,7 +478,31 @@ function GameRoom() {
   useEffect(() => {
     const onResize = () => { setViewportHeight(window.innerHeight); setViewportWidth(window.innerWidth); };
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+
+    // Lock body scroll on game pages to prevent pull-to-refresh / page bouncing
+    const prevOverflow = document.body.style.overflow;
+    const prevOverscroll = document.body.style.overscrollBehavior;
+    const prevPosition = document.body.style.position;
+    const prevTouchAction = document.body.style.touchAction;
+    const prevHeight = document.body.style.height;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.body.style.position = "fixed";
+    document.body.style.width = "100%";
+    document.body.style.height = "100%";
+    document.documentElement.style.overflow = "hidden";
+
+    return () => {
+      window.removeEventListener("resize", onResize);
+      document.body.style.overflow = prevOverflow;
+      document.body.style.overscrollBehavior = prevOverscroll;
+      document.body.style.position = prevPosition;
+      document.body.style.touchAction = prevTouchAction;
+      document.body.style.height = prevHeight;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
   }, []);
 
   useEffect(() => {
@@ -579,7 +603,7 @@ function GameRoom() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#FAFAF7", color: "#1A1A1A", position: "relative", overflow: isMobile ? "auto" : "hidden", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: isMobile ? "8px 6px" : "16px 20px" }}>
+    <div style={{ height: "100vh", width: "100vw", background: "#FAFAF7", color: "#1A1A1A", position: "fixed", top: 0, left: 0, overflow: "hidden", display: "flex", flexDirection: "column", overscrollBehavior: "none" }}>
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(rgba(45,106,79,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(45,106,79,.015) 1px,transparent 1px)", backgroundSize: "60px 60px" }} />
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 30% 40%,rgba(45,106,79,.04) 0%,transparent 55%)" }} />
 
@@ -607,9 +631,9 @@ function GameRoom() {
       {/* Game Started Animation */}
       <GameStartOverlay ready={game.bothPlayersReady} />
 
-      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 10 : 24, alignItems: isMobile ? "center" : "flex-start", position: "relative", zIndex: 1, justifyContent: "center", animation: "fadeIn .4s ease", width: isMobile ? "100%" : "auto" }}>
+      <div style={{ flex: 1, overflow: isMobile ? "auto" : "hidden", display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 10 : 24, alignItems: isMobile ? "center" : "flex-start", justifyContent: "center", position: "relative", zIndex: 1, animation: "fadeIn .4s ease", width: "100%", padding: isMobile ? "8px 6px" : "16px 20px", overscrollBehavior: "none", WebkitOverflowScrolling: "touch" }}>
         {/* Board column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center", flexShrink: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center", flexShrink: 0, touchAction: "none" }}>
           <div style={{ width: boardW }}>
             <PlayerStrip label={topIsMe ? "You" : "Opponent"} id={topId} color={topColor}
               isActive={game.turn === topColor} captures={topCaptures}

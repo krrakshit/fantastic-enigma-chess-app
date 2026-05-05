@@ -14,7 +14,7 @@ export const Route = createFileRoute("/game")({
 });
 
 const WS_URL = process.env.VITE_WS_URL ?? "ws://localhost:3000/ws";
-const P = "#10B981";
+const P = "#2D6A4F";
 
 const FACTS = [
   "There are more possible chess games than atoms in the observable universe.",
@@ -138,7 +138,7 @@ function GameLobby() {
       {["♟", "♞", "♜", "♛", "♝"].map((p, i) => (
         <div key={i} style={{
           position: "fixed", fontSize: `${1.8 + i * 0.35}rem`,
-          color: "rgba(16,185,129,.03)", pointerEvents: "none", userSelect: "none",
+          color: "rgba(45,106,79,.03)", pointerEvents: "none", userSelect: "none",
           top: `${10 + i * 17}%`,
           ...(i % 2 === 0 ? { left: `${4 + i * 3}%` } : { right: `${4 + i * 3}%` }),
           animation: `float ${6 + i}s ease-in-out infinite alternate`,
@@ -153,10 +153,10 @@ function GameLobby() {
           <div style={{ fontSize: "3rem", marginBottom: 10, animation: "float 4s ease-in-out infinite alternate" }}>♛</div>
           <h1 style={{
             fontSize: "clamp(2rem, 6vw, 2.8rem)", fontWeight: 800, margin: "0 0 6px",
-            background: `linear-gradient(135deg, ${P}, #34D399)`,
+            background: `linear-gradient(135deg, ${P}, #40916C)`,
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
           }}>Chess Arena</h1>
-          <p style={{ color: "#6B7280", fontSize: ".9rem" }}>Real-time 1v1 · WebSocket powered</p>
+          <p style={{ color: "#6B7264", fontSize: ".9rem" }}>Real-time 1v1 · WebSocket powered</p>
         </div>
 
         <div style={card}>
@@ -168,13 +168,13 @@ function GameLobby() {
               {/* Connection status */}
               <div style={{
                 display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 8,
-                background: wsReady ? "rgba(16,185,129,.05)" : status === "connecting" ? "rgba(245,158,11,.05)" : "rgba(239,68,68,.05)",
-                border: `1px solid ${wsReady ? "rgba(16,185,129,.2)" : status === "connecting" ? "rgba(245,158,11,.2)" : "rgba(239,68,68,.2)"}`,
+                background: wsReady ? "rgba(45,106,79,.05)" : status === "connecting" ? "rgba(245,158,11,.05)" : "rgba(239,68,68,.05)",
+                border: `1px solid ${wsReady ? "rgba(45,106,79,.2)" : status === "connecting" ? "rgba(245,158,11,.2)" : "rgba(239,68,68,.2)"}`,
               }}>
                 <div style={{
                   width: 8, height: 8, borderRadius: "50%",
                   background: wsReady ? P : status === "connecting" ? "#F59E0B" : "#EF4444",
-                  boxShadow: `0 0 8px ${wsReady ? "rgba(16,185,129,.5)" : "rgba(245,158,11,.4)"}`,
+                  boxShadow: `0 0 8px ${wsReady ? "rgba(45,106,79,.5)" : "rgba(245,158,11,.4)"}`,
                   animation: wsReady ? "pulse 2s infinite" : "pulse .8s infinite",
                 }} />
                 <span style={{ fontSize: ".82rem", fontWeight: 600, color: wsReady ? P : "#F59E0B" }}>
@@ -193,18 +193,18 @@ function GameLobby() {
               )}
 
               <div>
-                <div style={{ fontSize: ".62rem", color: "#4B5563", letterSpacing: ".1em", marginBottom: 6, fontWeight: 600 }}>
+                <div style={{ fontSize: ".62rem", color: "#8B9080", letterSpacing: ".1em", marginBottom: 6, fontWeight: 600 }}>
                   {isGuest ? "PLAYING AS GUEST" : "YOUR PLAYER ID"}
                 </div>
                 <div style={{
                   padding: "10px 14px", borderRadius: 8,
-                  background: "rgba(255,255,255,.03)", border: `1px solid ${isGuest ? "rgba(245,158,11,.15)" : "rgba(255,255,255,.06)"}`,
+                  background: "rgba(255,255,255,.55)", border: `1px solid ${isGuest ? "rgba(245,158,11,.15)" : "rgba(0,0,0,.06)"}`,
                   fontFamily: "'JetBrains Mono', monospace", fontSize: ".85rem",
                   color: isGuest ? "#F59E0B" : "#6B7280",
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                 }}>
                   <span>{playerId || "—"}</span>
-                  {isGuest && <span style={{ fontSize: ".6rem", color: "#4B5563" }}>No chat · No history</span>}
+                  {isGuest && <span style={{ fontSize: ".6rem", color: "#8B9080" }}>No chat · No history</span>}
                 </div>
               </div>
 
@@ -221,16 +221,16 @@ function GameLobby() {
 
               {/* Divider */}
               <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.06)" }} />
-                <span style={{ fontSize: ".68rem", color: "#4B5563", fontWeight: 600, letterSpacing: ".08em" }}>OR PLAY WITH A FRIEND</span>
-                <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.06)" }} />
+                <div style={{ flex: 1, height: 1, background: "rgba(0,0,0,.06)" }} />
+                <span style={{ fontSize: ".68rem", color: "#8B9080", fontWeight: 600, letterSpacing: ".08em" }}>OR PLAY WITH A FRIEND</span>
+                <div style={{ flex: 1, height: 1, background: "rgba(0,0,0,.06)" }} />
               </div>
 
               {/* Create / Join buttons side by side */}
               <div style={{ display: "flex", gap: 12 }}>
                 <button onClick={handleCreateRoom} disabled={!wsReady} style={secondaryBtn(wsReady)}
-                  onMouseEnter={(e) => { if (wsReady) (e.currentTarget as HTMLElement).style.background = "rgba(16,185,129,.1)"; }}
-                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(16,185,129,.04)"; }}
+                  onMouseEnter={(e) => { if (wsReady) (e.currentTarget as HTMLElement).style.background = "rgba(45,106,79,.1)"; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(45,106,79,.04)"; }}
                 >
                   <span style={{ fontSize: "1rem" }}>🏠</span>
                   <span>Create Room</span>
@@ -252,14 +252,14 @@ function GameLobby() {
               <div style={{ position: "relative", width: 72, height: 72 }}>
                 <div style={{
                   width: 72, height: 72, borderRadius: "50%",
-                  border: `3px solid rgba(16,185,129,.12)`, borderTop: `3px solid ${P}`,
+                  border: `3px solid rgba(45,106,79,.12)`, borderTop: `3px solid ${P}`,
                   animation: "spin 1.5s linear infinite",
                 }} />
                 <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "2rem" }}>♛</div>
               </div>
               <div>
                 <h2 style={{ fontSize: "1.4rem", fontWeight: 700, color: P, margin: "0 0 6px" }}>Finding your opponent…</h2>
-                <p style={{ color: "#6B7280", fontSize: ".85rem" }}>You'll be matched with the next online player</p>
+                <p style={{ color: "#6B7264", fontSize: ".85rem" }}>You'll be matched with the next online player</p>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
                 {[0, .25, .5].map((d, i) => (
@@ -267,7 +267,7 @@ function GameLobby() {
                 ))}
               </div>
               <FactCard factIdx={factIdx} />
-              <code style={{ fontSize: ".68rem", color: "#374151" }}>{playerId}</code>
+              <code style={{ fontSize: ".68rem", color: "#9CA392" }}>{playerId}</code>
               <button onClick={() => setMode("menu")} style={backToMenuBtn}>← Back to menu</button>
             </div>
           )}
@@ -278,27 +278,27 @@ function GameLobby() {
               <div style={{ fontSize: "2.5rem", animation: "float 4s ease-in-out infinite alternate" }}>🏠</div>
               <div>
                 <h2 style={{ fontSize: "1.3rem", fontWeight: 700, color: P, margin: "0 0 6px" }}>Room Created!</h2>
-                <p style={{ color: "#6B7280", fontSize: ".85rem" }}>Share this code with your friend</p>
+                <p style={{ color: "#6B7264", fontSize: ".85rem" }}>Share this code with your friend</p>
               </div>
 
               {/* Room code display */}
               <div style={{
                 padding: "16px 28px", borderRadius: 12,
-                background: "linear-gradient(135deg, rgba(16,185,129,.08), rgba(52,211,153,.04))",
+                background: "linear-gradient(135deg, rgba(45,106,79,.08), rgba(52,211,153,.04))",
                 border: `2px dashed ${P}`,
                 position: "relative",
               }}>
-                <div style={{ fontSize: ".55rem", color: "#4B5563", fontWeight: 700, letterSpacing: ".15em", marginBottom: 6 }}>ROOM CODE</div>
+                <div style={{ fontSize: ".55rem", color: "#8B9080", fontWeight: 700, letterSpacing: ".15em", marginBottom: 6 }}>ROOM CODE</div>
                 <div style={{
                   fontSize: "2rem", fontWeight: 800, fontFamily: "'JetBrains Mono', monospace",
                   color: P, letterSpacing: ".1em",
-                  textShadow: "0 0 20px rgba(16,185,129,.3)",
+                  textShadow: "0 0 20px rgba(45,106,79,.3)",
                 }}>{roomCode}</div>
               </div>
 
               <button onClick={handleCopyCode} style={{
                 padding: "8px 24px", borderRadius: 8, border: `1px solid ${P}40`,
-                background: copied ? "rgba(16,185,129,.15)" : "rgba(16,185,129,.06)",
+                background: copied ? "rgba(45,106,79,.15)" : "rgba(45,106,79,.06)",
                 color: P, fontSize: ".82rem", fontWeight: 600, cursor: "pointer",
                 transition: "all .2s", display: "flex", alignItems: "center", gap: 6,
               }}>
@@ -306,9 +306,9 @@ function GameLobby() {
               </button>
 
               {/* Waiting spinner */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", borderRadius: 8, background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)" }}>
-                <div style={{ width: 28, height: 28, borderRadius: "50%", border: "2px solid rgba(16,185,129,.12)", borderTop: `2px solid ${P}`, animation: "spin 1.5s linear infinite" }} />
-                <span style={{ fontSize: ".82rem", color: "#6B7280" }}>Waiting for your friend to join…</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 18px", borderRadius: 8, background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)" }}>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", border: "2px solid rgba(45,106,79,.12)", borderTop: `2px solid ${P}`, animation: "spin 1.5s linear infinite" }} />
+                <span style={{ fontSize: ".82rem", color: "#6B7264" }}>Waiting for your friend to join…</span>
               </div>
 
               <FactCard factIdx={factIdx} />
@@ -322,7 +322,7 @@ function GameLobby() {
               <div style={{ fontSize: "2.5rem" }}>🔗</div>
               <div>
                 <h2 style={{ fontSize: "1.3rem", fontWeight: 700, color: "#60A5FA", margin: "0 0 6px" }}>Join a Room</h2>
-                <p style={{ color: "#6B7280", fontSize: ".85rem" }}>Enter the code your friend shared</p>
+                <p style={{ color: "#6B7264", fontSize: ".85rem" }}>Enter the code your friend shared</p>
               </div>
 
               {error && (
@@ -332,7 +332,7 @@ function GameLobby() {
               )}
 
               <div style={{ width: "100%" }}>
-                <div style={{ fontSize: ".55rem", color: "#4B5563", fontWeight: 700, letterSpacing: ".15em", marginBottom: 6, textAlign: "left" }}>ROOM CODE</div>
+                <div style={{ fontSize: ".55rem", color: "#8B9080", fontWeight: 700, letterSpacing: ".15em", marginBottom: 6, textAlign: "left" }}>ROOM CODE</div>
                 <input
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
@@ -356,7 +356,7 @@ function GameLobby() {
               <button onClick={handleJoinRoom} disabled={!wsReady || !joinCode.trim()} style={{
                 width: "100%", padding: "14px 0", borderRadius: 10, border: "none",
                 cursor: (wsReady && joinCode.trim()) ? "pointer" : "not-allowed",
-                background: (wsReady && joinCode.trim()) ? "linear-gradient(135deg, #3B82F6, #60A5FA)" : "rgba(255,255,255,.04)",
+                background: (wsReady && joinCode.trim()) ? "linear-gradient(135deg, #3B82F6, #60A5FA)" : "rgba(0,0,0,.04)",
                 color: (wsReady && joinCode.trim()) ? "#fff" : "#4B5563",
                 fontSize: "1.05rem", fontWeight: 700, transition: "all .3s",
                 boxShadow: (wsReady && joinCode.trim()) ? "0 8px 32px rgba(59,130,246,.2)" : "none",
@@ -382,10 +382,10 @@ function FactCard({ factIdx }: { factIdx: number }) {
   return (
     <div key={factIdx} style={{
       padding: "14px 18px", borderRadius: 10, maxWidth: 340, animation: "fadeIn .5s ease",
-      background: "rgba(16,185,129,.04)", border: "1px solid rgba(16,185,129,.1)",
+      background: "rgba(45,106,79,.04)", border: "1px solid rgba(45,106,79,.1)",
     }}>
       <div style={{ fontSize: ".6rem", color: P, fontWeight: 700, letterSpacing: ".12em", marginBottom: 6 }}>DID YOU KNOW?</div>
-      <p style={{ fontSize: ".82rem", color: "#9CA3AF", lineHeight: 1.6, fontStyle: "italic", margin: 0 }}>{FACTS[factIdx]}</p>
+      <p style={{ fontSize: ".82rem", color: "#6B7264", lineHeight: 1.6, fontStyle: "italic", margin: 0 }}>{FACTS[factIdx]}</p>
     </div>
   );
 }
@@ -396,20 +396,20 @@ function primaryBtn(wsReady: boolean): CSSProperties {
   return {
     padding: "14px 0", borderRadius: 10, border: "none",
     cursor: wsReady ? "pointer" : "not-allowed",
-    background: wsReady ? `linear-gradient(135deg, ${P}, #34D399)` : "rgba(255,255,255,.04)",
-    color: wsReady ? "#0A0A0F" : "#4B5563",
+    background: wsReady ? `linear-gradient(135deg, ${P}, #40916C)` : "rgba(0,0,0,.04)",
+    color: wsReady ? "#FAFAF7" : "#4B5563",
     fontSize: "1.05rem", fontWeight: 700, letterSpacing: "-.01em",
     transition: "all .3s",
-    boxShadow: wsReady ? "0 8px 32px rgba(16,185,129,.2)" : "none",
+    boxShadow: wsReady ? "0 8px 32px rgba(45,106,79,.2)" : "none",
   };
 }
 
 function secondaryBtn(wsReady: boolean): CSSProperties {
   return {
     flex: 1, padding: "14px 10px", borderRadius: 10,
-    border: `1px solid rgba(16,185,129,.15)`,
-    background: "rgba(16,185,129,.04)",
-    color: wsReady ? "#A7F3D0" : "#4B5563",
+    border: `1px solid rgba(45,106,79,.15)`,
+    background: "rgba(45,106,79,.04)",
+    color: wsReady ? "#A7C4B5" : "#4B5563",
     fontSize: ".88rem", fontWeight: 600, cursor: wsReady ? "pointer" : "not-allowed",
     transition: "all .2s",
     display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
@@ -417,34 +417,34 @@ function secondaryBtn(wsReady: boolean): CSSProperties {
 }
 
 const backToMenuBtn: CSSProperties = {
-  background: "none", border: "none", color: "#4B5563",
+  background: "none", border: "none", color: "#8B9080",
   fontSize: ".78rem", cursor: "pointer", padding: "4px 8px",
   transition: "color .2s",
 };
 
 const pageStyle: CSSProperties = {
-  minHeight: "100vh", background: "#0A0A0F", color: "#fff",
+  minHeight: "100vh", background: "#FAFAF7", color: "#1A1A1A",
   display: "flex", alignItems: "center", justifyContent: "center",
   padding: "40px 20px", position: "relative", overflow: "hidden",
 };
 
 const card: CSSProperties = {
-  background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)",
-  borderRadius: 16, padding: "32px 36px", boxShadow: "0 24px 64px rgba(0,0,0,.5)",
+  background: "rgba(255,255,255,.6)", border: "1px solid rgba(0,0,0,.06)",
+  borderRadius: 16, padding: "32px 36px", boxShadow: "0 24px 64px rgba(0,0,0,.06)",
 };
 
 const backLink: CSSProperties = {
-  color: "#4B5563", textDecoration: "none", fontSize: ".82rem",
+  color: "#8B9080", textDecoration: "none", fontSize: ".82rem",
   display: "block", marginBottom: 10,
 };
 
 const bgGrid: CSSProperties = {
   position: "fixed", inset: 0, pointerEvents: "none",
-  backgroundImage: "linear-gradient(rgba(16,185,129,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(16,185,129,.015) 1px,transparent 1px)",
+  backgroundImage: "linear-gradient(rgba(45,106,79,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(45,106,79,.015) 1px,transparent 1px)",
   backgroundSize: "72px 72px",
 };
 
 const bgGlow: CSSProperties = {
   position: "fixed", inset: 0, pointerEvents: "none",
-  background: "radial-gradient(ellipse at 50% 30%,rgba(16,185,129,.06) 0%,transparent 55%)",
+  background: "radial-gradient(ellipse at 50% 30%,rgba(45,106,79,.06) 0%,transparent 55%)",
 };

@@ -18,7 +18,7 @@ function GameRoomWrapper() {
   return <GameRoom key={roomId} />;
 }
 
-const P = "#10B981";
+const P = "#2D6A4F";
 
 interface GameData {
   roomId: string;
@@ -61,30 +61,30 @@ function MoveHistory({ moves, moveTimes }: { moves: Move[]; moveTimes: number[] 
   return (
     <div ref={containerRef} style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 2 }}>
       {pairs.length === 0 && (
-        <p style={{ textAlign: "center", color: "#374151", fontSize: ".78rem", fontStyle: "italic", marginTop: 16 }}>
+        <p style={{ textAlign: "center", color: "#9CA392", fontSize: ".78rem", fontStyle: "italic", marginTop: 16 }}>
           Game not started yet
         </p>
       )}
       {pairs.map((p) => (
         <div key={p.num} style={{ display: "flex", gap: 4, alignItems: "center" }}>
-          <span style={{ fontSize: ".68rem", color: "#4B5563", width: 24, textAlign: "right", flexShrink: 0 }}>{p.num}.</span>
+          <span style={{ fontSize: ".68rem", color: "#8B9080", width: 24, textAlign: "right", flexShrink: 0 }}>{p.num}.</span>
           <span style={{
             flex: 1, padding: "3px 8px", borderRadius: 4, fontSize: ".8rem",
             fontFamily: "'JetBrains Mono', monospace", fontWeight: 600,
-            background: "rgba(255,255,255,.03)", color: "#D1D5DB",
+            background: "rgba(255,255,255,.55)", color: "#2D2D2D",
             display: "flex", justifyContent: "space-between", alignItems: "center",
           }}>
             <span>{p.white?.san ?? ""}</span>
-            {p.whiteTime != null && <span style={{ fontSize: ".58rem", color: "#6B7280", fontWeight: 400 }}>{formatMoveTime(p.whiteTime)}</span>}
+            {p.whiteTime != null && <span style={{ fontSize: ".58rem", color: "#6B7264", fontWeight: 400 }}>{formatMoveTime(p.whiteTime)}</span>}
           </span>
           <span style={{
             flex: 1, padding: "3px 8px", borderRadius: 4, fontSize: ".8rem",
             fontFamily: "'JetBrains Mono', monospace",
-            background: p.black ? "rgba(255,255,255,.015)" : "transparent", color: "#9CA3AF",
+            background: p.black ? "rgba(45,106,79,.02)" : "transparent", color: "#6B7264",
             display: "flex", justifyContent: "space-between", alignItems: "center",
           }}>
             <span>{p.black?.san ?? ""}</span>
-            {p.blackTime != null && <span style={{ fontSize: ".58rem", color: "#6B7280", fontWeight: 400 }}>{formatMoveTime(p.blackTime)}</span>}
+            {p.blackTime != null && <span style={{ fontSize: ".58rem", color: "#6B7264", fontWeight: 400 }}>{formatMoveTime(p.blackTime)}</span>}
           </span>
         </div>
       ))}
@@ -101,16 +101,16 @@ function ChatPanel({ messages, onSend, myId, containerStyle }: { messages: ChatM
 
   return (
     <div style={{
-      background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)",
+      background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)",
       borderRadius: 10, padding: 12, display: "flex", flexDirection: "column",
       minHeight: 140, maxHeight: 200,
       ...containerStyle,
     }}>
-      <div style={{ fontSize: ".6rem", color: "#4B5563", fontWeight: 700, letterSpacing: ".1em", marginBottom: 5 }}>CHAT</div>
-      <div style={{ height: 1, background: "rgba(255,255,255,.04)", marginBottom: 5 }} />
+      <div style={{ fontSize: ".6rem", color: "#8B9080", fontWeight: 700, letterSpacing: ".1em", marginBottom: 5 }}>CHAT</div>
+      <div style={{ height: 1, background: "rgba(0,0,0,.04)", marginBottom: 5 }} />
       <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 4, marginBottom: 6 }}>
         {messages.length === 0 && (
-          <p style={{ textAlign: "center", color: "#374151", fontSize: ".7rem", fontStyle: "italic", marginTop: 6 }}>No messages yet</p>
+          <p style={{ textAlign: "center", color: "#9CA392", fontSize: ".7rem", fontStyle: "italic", marginTop: 6 }}>No messages yet</p>
         )}
         {messages.map((m, i) => {
           const isMe = m.senderID === myId;
@@ -118,13 +118,13 @@ function ChatPanel({ messages, onSend, myId, containerStyle }: { messages: ChatM
             <div key={i} style={{
               alignSelf: isMe ? "flex-end" : "flex-start", maxWidth: "80%",
               padding: "4px 10px", borderRadius: 7,
-              background: isMe ? "rgba(16,185,129,.1)" : "rgba(255,255,255,.04)",
-              border: `1px solid ${isMe ? "rgba(16,185,129,.2)" : "rgba(255,255,255,.06)"}`,
+              background: isMe ? "rgba(45,106,79,.1)" : "rgba(0,0,0,.04)",
+              border: `1px solid ${isMe ? "rgba(45,106,79,.2)" : "rgba(0,0,0,.06)"}`,
             }}>
               <div style={{ fontSize: ".58rem", color: isMe ? P : "#4B5563", fontWeight: 600, marginBottom: 1 }}>
                 {isMe ? "You" : shortId(m.senderID)}
               </div>
-              <div style={{ fontSize: ".76rem", color: isMe ? "#A7F3D0" : "#9CA3AF", wordBreak: "break-word" }}>{m.message}</div>
+              <div style={{ fontSize: ".76rem", color: isMe ? "#A7C4B5" : "#9CA3AF", wordBreak: "break-word" }}>{m.message}</div>
             </div>
           );
         })}
@@ -133,12 +133,12 @@ function ChatPanel({ messages, onSend, myId, containerStyle }: { messages: ChatM
       <form onSubmit={(e) => { e.preventDefault(); if (!draft.trim()) return; onSend(draft); setDraft(""); }} style={{ display: "flex", gap: 5 }}>
         <input value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="Type a message…" maxLength={200}
           style={{
-            flex: 1, padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(255,255,255,.08)",
-            background: "rgba(255,255,255,.02)", color: "#D1D5DB", fontSize: ".76rem", outline: "none",
+            flex: 1, padding: "5px 10px", borderRadius: 6, border: "1px solid rgba(0,0,0,.08)",
+            background: "rgba(255,255,255,.65)", color: "#2D2D2D", fontSize: ".76rem", outline: "none",
           }} />
         <button type="submit" style={{
-          padding: "5px 12px", borderRadius: 6, border: `1px solid rgba(16,185,129,.2)`,
-          background: "rgba(16,185,129,.08)", color: P, fontSize: ".76rem", fontWeight: 700, cursor: "pointer",
+          padding: "5px 12px", borderRadius: 6, border: `1px solid rgba(45,106,79,.2)`,
+          background: "rgba(45,106,79,.08)", color: P, fontSize: ".76rem", fontWeight: 700, cursor: "pointer",
         }}>Send</button>
       </form>
     </div>
@@ -155,32 +155,32 @@ function PlayerStrip({ label, id, color, isActive, captures, points, timeMs }: {
   return (
     <div style={{
       padding: "10px 14px", borderRadius: 10,
-      background: isActive ? "rgba(16,185,129,.06)" : "rgba(255,255,255,.02)",
-      border: `1px solid ${isActive ? "rgba(16,185,129,.25)" : "rgba(255,255,255,.05)"}`,
+      background: isActive ? "rgba(45,106,79,.06)" : "rgba(255,255,255,.65)",
+      border: `1px solid ${isActive ? "rgba(45,106,79,.25)" : "rgba(0,0,0,.06)"}`,
       transition: "all .3s", display: "flex", alignItems: "center", gap: 10,
     }}>
       <div style={{
         width: 18, height: 18, borderRadius: "50%", flexShrink: 0,
         background: color === "w" ? "linear-gradient(135deg,#fff,#d1d5db)" : "linear-gradient(135deg,#4B5563,#111)",
-        border: `2px solid ${isActive ? P : "rgba(255,255,255,.12)"}`,
-        boxShadow: isActive ? `0 0 6px rgba(16,185,129,.4)` : "none",
+        border: `2px solid ${isActive ? P : "rgba(0,0,0,.1)"}`,
+        boxShadow: isActive ? `0 0 6px rgba(45,106,79,.4)` : "none",
       }} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: ".72rem", fontWeight: 600, color: isActive ? "#A7F3D0" : "#6B7280", letterSpacing: ".04em" }}>{label}</div>
-        <div style={{ fontSize: ".62rem", color: "#374151", fontFamily: "'JetBrains Mono', monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shortId(id)}</div>
+        <div style={{ fontSize: ".72rem", fontWeight: 600, color: isActive ? "#A7C4B5" : "#6B7280", letterSpacing: ".04em" }}>{label}</div>
+        <div style={{ fontSize: ".62rem", color: "#9CA392", fontFamily: "'JetBrains Mono', monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shortId(id)}</div>
       </div>
       <div style={{
         padding: "2px 7px", borderRadius: 5,
-        background: points > 0 ? "rgba(16,185,129,.08)" : "rgba(255,255,255,.02)",
-        border: `1px solid ${points > 0 ? "rgba(16,185,129,.2)" : "rgba(255,255,255,.05)"}`,
+        background: points > 0 ? "rgba(45,106,79,.08)" : "rgba(255,255,255,.65)",
+        border: `1px solid ${points > 0 ? "rgba(45,106,79,.2)" : "rgba(0,0,0,.06)"}`,
         fontSize: ".68rem", fontWeight: 700, color: points > 0 ? P : "#374151",
         minWidth: 26, textAlign: "center", flexShrink: 0,
       }}>{points}pt{points !== 1 ? "s" : ""}</div>
       <div style={{
         padding: "3px 9px", borderRadius: 5, fontFamily: "'JetBrains Mono', monospace",
         fontSize: ".82rem", fontWeight: 700, flexShrink: 0, minWidth: 48, textAlign: "center",
-        background: isActive ? (isLow ? "rgba(239,68,68,.12)" : "rgba(16,185,129,.08)") : "rgba(255,255,255,.03)",
-        border: `1px solid ${isActive ? (isLow ? "rgba(239,68,68,.3)" : "rgba(16,185,129,.2)") : "rgba(255,255,255,.06)"}`,
+        background: isActive ? (isLow ? "rgba(239,68,68,.12)" : "rgba(45,106,79,.08)") : "rgba(255,255,255,.55)",
+        border: `1px solid ${isActive ? (isLow ? "rgba(239,68,68,.3)" : "rgba(45,106,79,.2)") : "rgba(0,0,0,.06)"}`,
         color: isActive ? (isLow ? "#EF4444" : P) : "#6B7280",
       }}>{formatTime(timeMs)}</div>
       {captures.length > 0 && (
@@ -284,35 +284,35 @@ function GameOverOverlay({ status, turn, myColor, gameResult, myId, myPoints, op
   const displayOppPts = gameResult ? (iAmWinner ? gameResult.runnerupPoints : gameResult.winnerPoints) : opponentPoints;
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,.45)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{
-        background: "linear-gradient(135deg,#111116,#1a1a22)", border: `1px solid rgba(16,185,129,.15)`,
+        background: "linear-gradient(135deg,#FFFFFF,#F5F5F0)", border: `1px solid rgba(45,106,79,.15)`,
         borderRadius: 18, padding: "32px 24px", textAlign: "center",
-        boxShadow: "0 32px 80px rgba(0,0,0,.6)", maxWidth: 380, width: "90%",
+        boxShadow: "0 32px 80px rgba(0,0,0,.08)", maxWidth: 380, width: "90%",
       }}>
         <div style={{ fontSize: "3.5rem", marginBottom: 12 }}>{emoji}</div>
         <h2 style={{
           fontSize: "2.2rem", fontWeight: 800, margin: "0 0 8px",
-          background: `linear-gradient(135deg, ${P}, #34D399)`,
+          background: `linear-gradient(135deg, ${P}, #40916C)`,
           WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
         }}>{headline}</h2>
-        <p style={{ color: "#9CA3AF", fontSize: ".95rem", marginBottom: 22, lineHeight: 1.6 }}>{sub}</p>
+        <p style={{ color: "#6B7264", fontSize: ".95rem", marginBottom: 22, lineHeight: 1.6 }}>{sub}</p>
 
         {!isDraw && (
           <div style={{
-            display: "flex", gap: 12, marginBottom: 24, background: "rgba(255,255,255,.02)",
-            borderRadius: 10, padding: "12px 16px", border: "1px solid rgba(255,255,255,.05)",
+            display: "flex", gap: 12, marginBottom: 24, background: "rgba(255,255,255,.65)",
+            borderRadius: 10, padding: "12px 16px", border: "1px solid rgba(0,0,0,.06)",
           }}>
             <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: ".6rem", color: "#4B5563", letterSpacing: ".1em", marginBottom: 3 }}>YOU</div>
+              <div style={{ fontSize: ".6rem", color: "#8B9080", letterSpacing: ".1em", marginBottom: 3 }}>YOU</div>
               <div style={{ fontSize: "1.5rem", fontWeight: 800, color: P }}>{displayMyPts}</div>
-              <div style={{ fontSize: ".58rem", color: "#374151" }}>pts</div>
+              <div style={{ fontSize: ".58rem", color: "#9CA392" }}>pts</div>
             </div>
-            <div style={{ width: 1, background: "rgba(255,255,255,.05)" }} />
+            <div style={{ width: 1, background: "rgba(0,0,0,.06)" }} />
             <div style={{ flex: 1, textAlign: "center" }}>
-              <div style={{ fontSize: ".6rem", color: "#4B5563", letterSpacing: ".1em", marginBottom: 3 }}>OPPONENT</div>
-              <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#9CA3AF" }}>{displayOppPts}</div>
-              <div style={{ fontSize: ".58rem", color: "#374151" }}>pts</div>
+              <div style={{ fontSize: ".6rem", color: "#8B9080", letterSpacing: ".1em", marginBottom: 3 }}>OPPONENT</div>
+              <div style={{ fontSize: "1.5rem", fontWeight: 800, color: "#6B7264" }}>{displayOppPts}</div>
+              <div style={{ fontSize: ".58rem", color: "#9CA392" }}>pts</div>
             </div>
           </div>
         )}
@@ -321,16 +321,16 @@ function GameOverOverlay({ status, turn, myColor, gameResult, myId, myPoints, op
         {rematchOffered && (
           <div style={{
             padding: "12px 16px", borderRadius: 10, marginBottom: 8,
-            background: "rgba(16,185,129,.06)", border: "1px solid rgba(16,185,129,.2)",
+            background: "rgba(45,106,79,.06)", border: "1px solid rgba(45,106,79,.2)",
             textAlign: "center",
           }}>
-            <p style={{ fontSize: ".85rem", color: "#A7F3D0", margin: "0 0 10px", fontWeight: 600 }}>
+            <p style={{ fontSize: ".85rem", color: "#A7C4B5", margin: "0 0 10px", fontWeight: 600 }}>
               ♻ Opponent wants a rematch!
             </p>
             <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
               <button onClick={onAcceptRematch} style={{
-                padding: "8px 20px", background: `linear-gradient(135deg, ${P}, #34D399)`,
-                color: "#0A0A0F", borderRadius: 8, fontWeight: 700, fontSize: ".85rem",
+                padding: "8px 20px", background: `linear-gradient(135deg, ${P}, #40916C)`,
+                color: "#FAFAF7", borderRadius: 8, fontWeight: 700, fontSize: ".85rem",
                 border: "none", cursor: "pointer",
               }}>✓ Accept</button>
               <button onClick={onDeclineRematch} style={{
@@ -345,18 +345,18 @@ function GameOverOverlay({ status, turn, myColor, gameResult, myId, myPoints, op
           {!rematchOffered && (
             <button onClick={onRematch} disabled={rematchOfferSent} style={{
               padding: "10px 24px",
-              background: rematchOfferSent ? "rgba(255,255,255,.04)" : `linear-gradient(135deg, ${P}, #34D399)`,
-              color: rematchOfferSent ? "#6B7280" : "#0A0A0F",
+              background: rematchOfferSent ? "rgba(0,0,0,.04)" : `linear-gradient(135deg, ${P}, #40916C)`,
+              color: rematchOfferSent ? "#6B7280" : "#FAFAF7",
               borderRadius: 8, fontWeight: 700, fontSize: ".88rem",
               border: "none", cursor: rematchOfferSent ? "not-allowed" : "pointer", transition: "all .2s",
             }}>{rematchOfferSent ? "⏳ Waiting for opponent..." : "♻ Rematch"}</button>
           )}
           <Link to="/game" style={{
-            padding: "10px 24px", border: `1px solid rgba(16,185,129,.2)`, color: P,
+            padding: "10px 24px", border: `1px solid rgba(45,106,79,.2)`, color: P,
             borderRadius: 8, fontWeight: 600, fontSize: ".88rem", textDecoration: "none",
           }}>New Game</Link>
           <Link to="/" style={{
-            padding: "10px 24px", border: `1px solid rgba(255,255,255,.08)`, color: "#6B7280",
+            padding: "10px 24px", border: `1px solid rgba(0,0,0,.08)`, color: "#6B7264",
             borderRadius: 8, fontWeight: 600, fontSize: ".88rem", textDecoration: "none",
           }}>Home</Link>
         </div>
@@ -397,17 +397,17 @@ function GameStartOverlay({ ready }: { ready: boolean }) {
       {/* Glow ring */}
       <div style={{
         width: 120, height: 120, borderRadius: "50%",
-        background: `radial-gradient(circle, rgba(16,185,129,.15) 0%, transparent 70%)`,
+        background: `radial-gradient(circle, rgba(45,106,79,.15) 0%, transparent 70%)`,
         display: "flex", alignItems: "center", justifyContent: "center",
         animation: "pulseGlow 1.5s ease-in-out infinite",
         marginBottom: 20,
       }}>
         <div style={{
           width: 80, height: 80, borderRadius: "50%",
-          background: `linear-gradient(135deg, ${P}, #34D399)`,
+          background: `linear-gradient(135deg, ${P}, #40916C)`,
           display: "flex", alignItems: "center", justifyContent: "center",
           fontSize: "2.5rem",
-          boxShadow: `0 0 40px rgba(16,185,129,.4), 0 0 80px rgba(16,185,129,.15)`,
+          boxShadow: `0 0 40px rgba(45,106,79,.4), 0 0 80px rgba(45,106,79,.15)`,
           animation: "bounceIn .5s cubic-bezier(.68,-.55,.27,1.55)",
         }}>
           ♞
@@ -416,7 +416,7 @@ function GameStartOverlay({ ready }: { ready: boolean }) {
 
       <h2 style={{
         fontSize: "2rem", fontWeight: 900, margin: "0 0 6px",
-        background: `linear-gradient(135deg, ${P}, #34D399, #6EE7B7)`,
+        background: `linear-gradient(135deg, ${P}, #40916C, #6EE7B7)`,
         WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
         animation: "slideUp .4s ease .15s both",
         letterSpacing: "-.02em",
@@ -424,7 +424,7 @@ function GameStartOverlay({ ready }: { ready: boolean }) {
         Game On!
       </h2>
       <p style={{
-        color: "#9CA3AF", fontSize: ".9rem", margin: 0,
+        color: "#6B7264", fontSize: ".9rem", margin: 0,
         animation: "slideUp .4s ease .3s both",
       }}>
         Both players connected · White's clock is running
@@ -536,7 +536,7 @@ function GameRoom() {
     selectedSquare: themeColors.selectedSquare, legalMoveIndicator: themeColors.legalMoveIndicator,
     lastMoveHighlight: themeColors.lastMoveHighlight, checkHighlight: themeColors.checkHighlight,
     boardBorder: themeColors.boardBorder, boardBorderWidth: 3,
-    boardShadow: `0 0 50px ${themeColors.accent}15, 0 20px 60px rgba(0,0,0,.6)`,
+    boardShadow: `0 0 50px ${themeColors.accent}15, 0 20px 60px rgba(0,0,0,.08)`,
     pieceSize: computedPieceSize, squareSize: computedSquareSize,
     coordinateColor: themeColors.accent, coordinateFontFamily: "'Inter', sans-serif",
   };
@@ -559,29 +559,29 @@ function GameRoom() {
 
   if (loading) {
     return (
-      <div style={{ minHeight: "100vh", background: "#0A0A0F", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+      <div style={{ minHeight: "100vh", background: "#FAFAF7", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
         <div style={{ width: 36, height: 36, borderRadius: "50%", border: "3px solid #1F2937", borderTop: `3px solid ${P}`, animation: "spin .8s linear infinite" }} />
-        <p style={{ color: "#6B7280" }}>Loading game…</p>
+        <p style={{ color: "#6B7264" }}>Loading game…</p>
       </div>
     );
   }
 
   if (!gameData) {
     return (
-      <div style={{ minHeight: "100vh", background: "#0A0A0F", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
+      <div style={{ minHeight: "100vh", background: "#FAFAF7", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 16 }}>
         <div style={{ fontSize: "2.5rem" }}>⚠️</div>
         <p style={{ color: "#EF4444", fontSize: "1rem", textAlign: "center" }}>
-          Session not found.<br /><span style={{ color: "#6B7280", fontSize: ".85rem" }}>The session may have expired.</span>
+          Session not found.<br /><span style={{ color: "#6B7264", fontSize: ".85rem" }}>The session may have expired.</span>
         </p>
-        <Link to="/game" style={{ padding: "10px 28px", background: P, color: "#0A0A0F", borderRadius: 8, fontWeight: 700, textDecoration: "none" }}>Back to Lobby</Link>
+        <Link to="/game" style={{ padding: "10px 28px", background: P, color: "#FAFAF7", borderRadius: 8, fontWeight: 700, textDecoration: "none" }}>Back to Lobby</Link>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0A0A0F", color: "#fff", position: "relative", overflow: isMobile ? "auto" : "hidden", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: isMobile ? "8px 6px" : "16px 20px" }}>
-      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(rgba(16,185,129,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(16,185,129,.015) 1px,transparent 1px)", backgroundSize: "60px 60px" }} />
-      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 30% 40%,rgba(16,185,129,.04) 0%,transparent 55%)" }} />
+    <div style={{ minHeight: "100vh", background: "#FAFAF7", color: "#1A1A1A", position: "relative", overflow: isMobile ? "auto" : "hidden", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: isMobile ? "8px 6px" : "16px 20px" }}>
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(rgba(45,106,79,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(45,106,79,.015) 1px,transparent 1px)", backgroundSize: "60px 60px" }} />
+      <div style={{ position: "fixed", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 30% 40%,rgba(45,106,79,.04) 0%,transparent 55%)" }} />
 
       <GameOverOverlay status={game.gameStatus} turn={game.turn} myColor={myColor}
         gameResult={game.gameResult} myId={myId} myPoints={game.myPoints}
@@ -593,10 +593,10 @@ function GameRoom() {
       {wasRestored && game.connectionStatus === "connected" && (
         <div style={{
           position: "fixed", top: 14, left: "50%", transform: "translateX(-50%)", zIndex: 1500,
-          padding: "8px 18px", borderRadius: 8, background: "rgba(16,185,129,.1)",
-          border: "1px solid rgba(16,185,129,.25)", color: P, fontSize: ".8rem",
+          padding: "8px 18px", borderRadius: 8, background: "rgba(45,106,79,.1)",
+          border: "1px solid rgba(45,106,79,.25)", color: P, fontSize: ".8rem",
           fontWeight: 600, display: "flex", alignItems: "center", gap: 8, animation: "fadeIn .4s ease",
-          boxShadow: "0 4px 20px rgba(16,185,129,.12)",
+          boxShadow: "0 4px 20px rgba(45,106,79,.12)",
         }}>
           <div style={{ width: 7, height: 7, borderRadius: "50%", background: P, boxShadow: `0 0 6px ${P}`, animation: "pulse 1.5s infinite" }} />
           ♻ Session restored
@@ -633,14 +633,14 @@ function GameRoom() {
 
           {/* Header card */}
           {!isMobile && (
-          <div style={{ padding: "16px 18px", background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)", borderRadius: 10 }}>
+          <div style={{ padding: "16px 18px", background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)", borderRadius: 10 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-              <Link to="/" style={{ color: "#4B5563", textDecoration: "none", fontSize: ".78rem" }}>← Home</Link>
+              <Link to="/" style={{ color: "#8B9080", textDecoration: "none", fontSize: ".78rem" }}>← Home</Link>
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <div style={{
                   width: 6, height: 6, borderRadius: "50%",
                   background: game.connectionStatus === "connected" ? P : "#F59E0B",
-                  boxShadow: `0 0 5px ${game.connectionStatus === "connected" ? "rgba(16,185,129,.5)" : "rgba(245,158,11,.5)"}`,
+                  boxShadow: `0 0 5px ${game.connectionStatus === "connected" ? "rgba(45,106,79,.5)" : "rgba(245,158,11,.5)"}`,
                   animation: "pulse 2s infinite",
                 }} />
                 <span style={{ fontSize: ".6rem", fontWeight: 700, letterSpacing: ".1em", color: game.connectionStatus === "connected" ? P : "#F59E0B" }}>
@@ -650,10 +650,10 @@ function GameRoom() {
             </div>
             <h1 style={{
               fontSize: "1.2rem", fontWeight: 800, margin: "0 0 2px",
-              background: `linear-gradient(135deg, ${P}, #34D399)`,
+              background: `linear-gradient(135deg, ${P}, #40916C)`,
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
             }}>Chess Arena</h1>
-            <div style={{ fontSize: ".65rem", color: "#374151", fontFamily: "'JetBrains Mono', monospace" }}>Room: {roomId}</div>
+            <div style={{ fontSize: ".65rem", color: "#9CA392", fontFamily: "'JetBrains Mono', monospace" }}>Room: {roomId}</div>
           </div>
           )}
 
@@ -662,8 +662,8 @@ function GameRoom() {
             <div style={{
               padding: "9px 14px", borderRadius: 8, fontSize: ".85rem", fontWeight: 600,
               background: game.gameStatus === "check" ? "linear-gradient(90deg,rgba(239,68,68,.1),transparent)"
-                : game.isMyTurn ? "linear-gradient(90deg,rgba(16,185,129,.08),transparent)" : "rgba(255,255,255,.02)",
-              border: `1px solid ${game.gameStatus === "check" ? "rgba(239,68,68,.25)" : "rgba(16,185,129,.12)"}`,
+                : game.isMyTurn ? "linear-gradient(90deg,rgba(45,106,79,.08),transparent)" : "rgba(255,255,255,.65)",
+              border: `1px solid ${game.gameStatus === "check" ? "rgba(239,68,68,.25)" : "rgba(45,106,79,.12)"}`,
               color: game.gameStatus === "check" ? "#EF4444" : game.isMyTurn ? P : "#6B7280",
             }}>
               {game.gameStatus === "check"
@@ -680,11 +680,11 @@ function GameRoom() {
 
           {/* Mobile Tab Selector for Moves / Chat */}
           {isMobile && (
-            <div style={{ display: "flex", background: "rgba(255,255,255,.03)", borderRadius: 8, border: "1px solid rgba(255,255,255,.06)", padding: 3, gap: 3 }}>
+            <div style={{ display: "flex", background: "rgba(255,255,255,.55)", borderRadius: 8, border: "1px solid rgba(0,0,0,.06)", padding: 3, gap: 3 }}>
               {(["moves", "chat"] as const).map((tab) => (
                 <button key={tab} onClick={() => setMobileTab(tab)} style={{
                   flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer",
-                  background: mobileTab === tab ? "rgba(16,185,129,.12)" : "transparent",
+                  background: mobileTab === tab ? "rgba(45,106,79,.12)" : "transparent",
                   color: mobileTab === tab ? P : "#6B7280",
                   fontSize: ".75rem", fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase",
                   transition: "all .2s",
@@ -696,16 +696,16 @@ function GameRoom() {
           {/* Move history - show on desktop always, on mobile only when tab selected */}
           {(!isMobile || mobileTab === "moves") && (
           <div style={{
-            flex: isMobile ? "none" : 1, background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)",
+            flex: isMobile ? "none" : 1, background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)",
             borderRadius: 10, padding: isMobile ? 10 : 14, display: "flex", flexDirection: "column",
             minHeight: isMobile ? 180 : 240, maxHeight: isMobile ? 220 : 340,
           }}>
             <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
               <div style={{ width: 28 }} />
-              <div style={{ flex: 1, fontSize: ".6rem", color: "#4B5563", fontWeight: 700, letterSpacing: ".1em", paddingLeft: 8 }}>WHITE</div>
-              <div style={{ flex: 1, fontSize: ".6rem", color: "#4B5563", fontWeight: 700, letterSpacing: ".1em", paddingLeft: 8 }}>BLACK</div>
+              <div style={{ flex: 1, fontSize: ".6rem", color: "#8B9080", fontWeight: 700, letterSpacing: ".1em", paddingLeft: 8 }}>WHITE</div>
+              <div style={{ flex: 1, fontSize: ".6rem", color: "#8B9080", fontWeight: 700, letterSpacing: ".1em", paddingLeft: 8 }}>BLACK</div>
             </div>
-            <div style={{ height: 1, background: "rgba(255,255,255,.04)", marginBottom: 6 }} />
+            <div style={{ height: 1, background: "rgba(0,0,0,.04)", marginBottom: 6 }} />
             <MoveHistory moves={game.moveHistory} moveTimes={game.moveTimes} />
           </div>
           )}
@@ -719,7 +719,7 @@ function GameRoom() {
               textAlign: "center",
             }}>
               <div style={{ fontSize: ".62rem", color: "#F59E0B", fontWeight: 700, letterSpacing: ".1em", marginBottom: 4 }}>GUEST MODE</div>
-              <p style={{ fontSize: ".72rem", color: "#6B7280", margin: 0 }}>
+              <p style={{ fontSize: ".72rem", color: "#6B7264", margin: 0 }}>
                 Sign up to unlock chat, game history, and analysis.
               </p>
             </div>
@@ -739,11 +739,11 @@ function GameRoom() {
               <span style={{ fontSize: ".85rem" }}>🤝</span>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: ".78rem", fontWeight: 600, color: "#F59E0B" }}>Draw Offered</div>
-                <div style={{ fontSize: ".65rem", color: "#6B7280" }}>Your opponent offers a draw</div>
+                <div style={{ fontSize: ".65rem", color: "#6B7264" }}>Your opponent offers a draw</div>
               </div>
               <button onClick={game.acceptDraw} style={{
-                padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(16,185,129,.3)",
-                background: "rgba(16,185,129,.1)", color: P, fontSize: ".72rem", fontWeight: 700, cursor: "pointer",
+                padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(45,106,79,.3)",
+                background: "rgba(45,106,79,.1)", color: P, fontSize: ".72rem", fontWeight: 700, cursor: "pointer",
               }}>Accept</button>
               <button onClick={game.declineDraw} style={{
                 padding: "4px 12px", borderRadius: 6, border: "1px solid rgba(239,68,68,.2)",
@@ -755,7 +755,7 @@ function GameRoom() {
           {/* ── Game Controls (Resign / Draw / Sound) ── */}
           {!isOver && (
             <div style={{
-              padding: "12px 14px", background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)",
+              padding: "12px 14px", background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)",
               borderRadius: 10, display: "flex", gap: 6,
             }}>
               {/* Resign */}
@@ -777,8 +777,8 @@ function GameRoom() {
                   }}>Confirm Resign</button>
                   <button onClick={() => setShowResignConfirm(false)} style={{
                     padding: "7px 10px", borderRadius: 7,
-                    border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.02)",
-                    color: "#6B7280", fontSize: ".72rem", cursor: "pointer",
+                    border: "1px solid rgba(0,0,0,.08)", background: "rgba(255,255,255,.65)",
+                    color: "#6B7264", fontSize: ".72rem", cursor: "pointer",
                   }}>Cancel</button>
                 </>
               )}
@@ -801,8 +801,8 @@ function GameRoom() {
               {!showResignConfirm && (
                 <button onClick={() => { const next = !soundMuted; setMuted(next); setSoundMuted(next); }} style={{
                   padding: "7px 10px", borderRadius: 7,
-                  border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.02)",
-                  color: "#6B7280", fontSize: ".82rem", cursor: "pointer",
+                  border: "1px solid rgba(0,0,0,.08)", background: "rgba(255,255,255,.65)",
+                  color: "#6B7264", fontSize: ".82rem", cursor: "pointer",
                 }} title={soundMuted ? "Unmute" : "Mute"}>
                   {soundMuted ? "🔇" : "🔊"}
                 </button>
@@ -813,7 +813,7 @@ function GameRoom() {
           {/* ── PGN Export (after game over) ── */}
           {isOver && (
             <div style={{
-              padding: "12px 14px", background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)",
+              padding: "12px 14px", background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)",
               borderRadius: 10, display: "flex", gap: 6,
             }}>
               <button onClick={() => {
@@ -821,7 +821,7 @@ function GameRoom() {
                 navigator.clipboard.writeText(pgn).then(() => { setPgnCopied(true); setTimeout(() => setPgnCopied(false), 2000); });
               }} style={{
                 flex: 1, padding: "7px 0", borderRadius: 7,
-                border: `1px solid ${P}30`, background: `rgba(16,185,129,.05)`,
+                border: `1px solid ${P}30`, background: `rgba(45,106,79,.05)`,
                 color: P, fontSize: ".72rem", fontWeight: 600, cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
               }}>
@@ -835,8 +835,8 @@ function GameRoom() {
                 URL.revokeObjectURL(url);
               }} style={{
                 flex: 1, padding: "7px 0", borderRadius: 7,
-                border: "1px solid rgba(255,255,255,.08)", background: "rgba(255,255,255,.02)",
-                color: "#9CA3AF", fontSize: ".72rem", fontWeight: 600, cursor: "pointer",
+                border: "1px solid rgba(0,0,0,.08)", background: "rgba(255,255,255,.65)",
+                color: "#6B7264", fontSize: ".72rem", fontWeight: 600, cursor: "pointer",
                 display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
               }}>
                 ⬇ Download PGN
@@ -845,23 +845,23 @@ function GameRoom() {
           )}
 
           {/* Footer info */}
-          <div style={{ padding: "12px 14px", background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)", borderRadius: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ padding: "12px 14px", background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)", borderRadius: 10, display: "flex", flexDirection: "column", gap: 8 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: ".62rem", color: "#4B5563", letterSpacing: ".05em" }}>YOUR COLOR</span>
+              <span style={{ fontSize: ".62rem", color: "#8B9080", letterSpacing: ".05em" }}>YOUR COLOR</span>
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <div style={{ width: 12, height: 12, borderRadius: "50%", background: myColor === "w" ? "#fff" : myColor === "b" ? "#333" : "#4B5563", border: "2px solid #4B5563" }} />
-                <span style={{ fontSize: ".8rem", color: "#9CA3AF", fontWeight: 600 }}>
+                <span style={{ fontSize: ".8rem", color: "#6B7264", fontWeight: 600 }}>
                   {myColor === "w" ? "White" : myColor === "b" ? "Black" : "—"}
                 </span>
               </div>
             </div>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: ".62rem", color: "#4B5563", letterSpacing: ".05em" }}>MOVES</span>
-              <span style={{ fontSize: ".8rem", color: "#9CA3AF", fontWeight: 600 }}>{game.moveHistory.length}</span>
+              <span style={{ fontSize: ".62rem", color: "#8B9080", letterSpacing: ".05em" }}>MOVES</span>
+              <span style={{ fontSize: ".8rem", color: "#6B7264", fontWeight: 600 }}>{game.moveHistory.length}</span>
             </div>
             {/* Theme Picker */}
             <div>
-              <div style={{ fontSize: ".62rem", color: "#4B5563", letterSpacing: ".05em", marginBottom: 6 }}>BOARD THEME</div>
+              <div style={{ fontSize: ".62rem", color: "#8B9080", letterSpacing: ".05em", marginBottom: 6 }}>BOARD THEME</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                 {getThemeList().map((t) => (
                   <button key={t.name} onClick={() => handleThemeChange(t.name)} title={t.label} style={{
@@ -876,10 +876,10 @@ function GameRoom() {
             {!isMobile && (
             <Link to="/game" style={{
               display: "block", textAlign: "center", padding: "8px 0",
-              border: `1px solid rgba(16,185,129,.15)`, borderRadius: 8,
+              border: `1px solid rgba(45,106,79,.15)`, borderRadius: 8,
               color: P, textDecoration: "none", fontSize: ".8rem", fontWeight: 600, transition: "all .2s",
             }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(16,185,129,.06)"; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(45,106,79,.06)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
             >New Game</Link>
             )}

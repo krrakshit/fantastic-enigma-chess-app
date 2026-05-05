@@ -16,15 +16,15 @@ export const Route = createFileRoute("/analyse/$roomId")({
   component: AnalysePage,
 });
 
-const P = "#10B981";
-const ARROW_COLORS = ["rgba(16,185,129,0.8)", "rgba(96,165,250,0.6)", "rgba(245,158,11,0.45)"];
+const P = "#2D6A4F";
+const ARROW_COLORS = ["rgba(45,106,79,0.8)", "rgba(96,165,250,0.6)", "rgba(245,158,11,0.45)"];
 
 const CLASSIFICATION_COLORS: Record<
   string,
   { bg: string; border: string; text: string; label: string }
 > = {
-  best: { bg: "rgba(16,185,129,.12)", border: "rgba(16,185,129,.3)", text: "#10B981", label: "Best" },
-  excellent: { bg: "rgba(52,211,153,.1)", border: "rgba(52,211,153,.25)", text: "#34D399", label: "Excellent" },
+  best: { bg: "rgba(45,106,79,.12)", border: "rgba(45,106,79,.3)", text: "#2D6A4F", label: "Best" },
+  excellent: { bg: "rgba(52,211,153,.1)", border: "rgba(52,211,153,.25)", text: "#40916C", label: "Excellent" },
   good: { bg: "rgba(96,165,250,.1)", border: "rgba(96,165,250,.25)", text: "#60A5FA", label: "Good" },
   inaccuracy: { bg: "rgba(245,158,11,.1)", border: "rgba(245,158,11,.25)", text: "#F59E0B", label: "Inaccuracy" },
   mistake: { bg: "rgba(249,115,22,.1)", border: "rgba(249,115,22,.25)", text: "#F97316", label: "Mistake" },
@@ -278,7 +278,7 @@ function AnalysePage() {
 
     // Selected piece highlight
     if (selectedSquare) {
-      styles[selectedSquare] = { backgroundColor: "rgba(16,185,129,0.45)" };
+      styles[selectedSquare] = { backgroundColor: "rgba(45,106,79,0.45)" };
 
       // Legal move dots
       try {
@@ -287,10 +287,10 @@ function AnalysePage() {
           const isCapture = move.flags.includes("c") || move.flags.includes("e");
           styles[move.to] = isCapture
             ? {
-                background: "radial-gradient(circle, transparent 55%, rgba(16,185,129,0.45) 56%)",
+                background: "radial-gradient(circle, transparent 55%, rgba(45,106,79,0.45) 56%)",
               }
             : {
-                background: "radial-gradient(circle, rgba(16,185,129,0.4) 22%, transparent 23%)",
+                background: "radial-gradient(circle, rgba(45,106,79,0.4) 22%, transparent 23%)",
               };
         }
       } catch {
@@ -306,8 +306,8 @@ function AnalysePage() {
     return (
       <div style={centerPage}>
         <div style={spinnerStyle} />
-        <p style={{ color: "#6B7280", marginTop: 16, fontSize: ".9rem" }}>Analysing game with Stockfish...</p>
-        <p style={{ color: "#374151", fontSize: ".75rem", marginTop: 6 }}>This may take a moment</p>
+        <p style={{ color: "#6B7264", marginTop: 16, fontSize: ".9rem" }}>Analysing game with Stockfish...</p>
+        <p style={{ color: "#9CA392", fontSize: ".75rem", marginTop: 6 }}>This may take a moment</p>
       </div>
     );
   }
@@ -387,17 +387,17 @@ function AnalysePage() {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
           <div>
-            <Link to="/history" style={{ color: "#4B5563", textDecoration: "none", fontSize: ".78rem", marginBottom: 8, display: "inline-block" }}
+            <Link to="/history" style={{ color: "#8B9080", textDecoration: "none", fontSize: ".78rem", marginBottom: 8, display: "inline-block" }}
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = P; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#4B5563"; }}
             >← Back to history</Link>
-            <h1 style={{ fontSize: "1.6rem", fontWeight: 800, color: "#E5E7EB", margin: 0 }}>Game Analysis</h1>
-            <p style={{ color: "#4B5563", fontSize: ".78rem", marginTop: 4 }}>
+            <h1 style={{ fontSize: "1.6rem", fontWeight: 800, color: "#1A1A1A", margin: 0 }}>Game Analysis</h1>
+            <p style={{ color: "#8B9080", fontSize: ".78rem", marginTop: 4 }}>
               {result.winner ?? "Draw"} vs {result.runnerup ?? "—"} · Room {roomId.slice(0, 8)}
             </p>
           </div>
           {result.winner && (
-            <div style={{ padding: "6px 16px", borderRadius: 8, background: "rgba(16,185,129,.08)", border: "1px solid rgba(16,185,129,.2)", color: P, fontSize: ".82rem", fontWeight: 600 }}>
+            <div style={{ padding: "6px 16px", borderRadius: 8, background: "rgba(45,106,79,.08)", border: "1px solid rgba(45,106,79,.2)", color: P, fontSize: ".82rem", fontWeight: 600 }}>
               🏆 {result.winner} won
             </div>
           )}
@@ -418,7 +418,7 @@ function AnalysePage() {
                 boardStyle: { borderRadius: "12px" },
                 darkSquareStyle: { backgroundColor: "#1a3a2a" },
                 lightSquareStyle: { backgroundColor: "#2d5a3e" },
-                dropSquareStyle: { boxShadow: "inset 0 0 1px 4px rgba(16,185,129,.5)" },
+                dropSquareStyle: { boxShadow: "inset 0 0 1px 4px rgba(45,106,79,.5)" },
                 squareStyles: highlightSquares as any,
                 arrows: boardArrows,
                 allowDragging: true,
@@ -432,7 +432,7 @@ function AnalysePage() {
           <div style={{
             width: 28, height: 440, borderRadius: 6, overflow: "hidden",
             background: "#1F2937", marginLeft: 8, position: "relative",
-            border: "1px solid rgba(255,255,255,.08)",
+            border: "1px solid rgba(0,0,0,.08)",
           }}>
             {/* White portion (bottom) */}
             <div style={{
@@ -473,12 +473,12 @@ function AnalysePage() {
             )}
 
             {/* Engine Lines */}
-            <div style={{ background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.06)", borderRadius: 10, padding: 12 }}>
-              <div style={{ fontSize: ".62rem", color: "#4B5563", letterSpacing: ".1em", fontWeight: 700, marginBottom: 8 }}>ENGINE LINES {evalLoading && "⏳"}</div>
+            <div style={{ background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)", borderRadius: 10, padding: 12 }}>
+              <div style={{ fontSize: ".62rem", color: "#8B9080", letterSpacing: ".1em", fontWeight: 700, marginBottom: 8 }}>ENGINE LINES {evalLoading && "⏳"}</div>
               {evalResult?.lines?.map((line, i) => (
                 <div key={i} style={{
                   display: "flex", gap: 10, alignItems: "center", padding: "5px 0",
-                  borderBottom: i < (evalResult.lines.length - 1) ? "1px solid rgba(255,255,255,.04)" : "none",
+                  borderBottom: i < (evalResult.lines.length - 1) ? "1px solid rgba(0,0,0,.04)" : "none",
                 }}>
                   <span style={{
                     fontSize: ".7rem", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
@@ -486,18 +486,18 @@ function AnalysePage() {
                   }}>
                     {line.mate !== null ? `M${line.mate}` : line.score !== null ? `${line.score > 0 ? "+" : ""}${(line.score / 100).toFixed(1)}` : "—"}
                   </span>
-                  <span style={{ fontSize: ".72rem", color: "#9CA3AF", fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span style={{ fontSize: ".72rem", color: "#6B7264", fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {line.moves.slice(0, 6).join(" ")}
                   </span>
                 </div>
               )) ?? (
-                <div style={{ fontSize: ".75rem", color: "#374151" }}>Loading...</div>
+                <div style={{ fontSize: ".75rem", color: "#9CA392" }}>Loading...</div>
               )}
             </div>
 
             {/* Move list (scrollable) */}
-            <div style={{ background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.06)", borderRadius: 10, flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-              <div style={{ fontSize: ".62rem", color: "#4B5563", letterSpacing: ".1em", fontWeight: 700, padding: "10px 12px 6px" }}>MOVES</div>
+            <div style={{ background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)", borderRadius: 10, flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
+              <div style={{ fontSize: ".62rem", color: "#8B9080", letterSpacing: ".1em", fontWeight: 700, padding: "10px 12px 6px" }}>MOVES</div>
               <div style={{ overflowY: "auto", padding: "0 6px 6px", flex: 1 }}>
                 <div style={{ display: "grid", gridTemplateColumns: "32px 1fr 1fr", gap: 2 }}>
                   {Array.from({ length: Math.ceil(result.analysis.length / 2) }).map((_, moveNum) => {
@@ -508,7 +508,7 @@ function AnalysePage() {
 
                     return (
                       <div key={moveNum} style={{ display: "contents" }}>
-                        <span style={{ fontSize: ".65rem", color: "#4B5563", fontWeight: 600, padding: "3px 4px", lineHeight: "22px" }}>
+                        <span style={{ fontSize: ".65rem", color: "#8B9080", fontWeight: 600, padding: "3px 4px", lineHeight: "22px" }}>
                           {moveNum + 1}.
                         </span>
                         {w && (
@@ -547,7 +547,7 @@ function AnalysePage() {
             <button key={i} onClick={btn.action} disabled={btn.disabled}
               style={{
                 width: 44, height: 36, borderRadius: 8, border: "1px solid rgba(255,255,255,.1)",
-                background: btn.disabled ? "rgba(255,255,255,.02)" : "rgba(16,185,129,.08)",
+                background: btn.disabled ? "rgba(255,255,255,.65)" : "rgba(45,106,79,.08)",
                 color: btn.disabled ? "#374151" : "#E5E7EB",
                 fontSize: "1rem", cursor: btn.disabled ? "default" : "pointer",
                 transition: "all .15s", display: "flex", alignItems: "center", justifyContent: "center",
@@ -569,7 +569,7 @@ function AnalysePage() {
                   background: si === 0 ? "linear-gradient(135deg,#fff,#d1d5db)" : "linear-gradient(135deg,#374151,#111)",
                   border: "2px solid rgba(255,255,255,.15)",
                 }} />
-                <div style={{ fontSize: ".85rem", fontWeight: 600, color: "#E5E7EB" }}>{side.label}</div>
+                <div style={{ fontSize: ".85rem", fontWeight: 600, color: "#1A1A1A" }}>{side.label}</div>
                 <div style={{ marginLeft: "auto", fontSize: "1.4rem", fontWeight: 800, color: P }}>{side.accuracy}%</div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 5 }}>
@@ -589,7 +589,7 @@ function AnalysePage() {
         </div>
 
         <div style={{ marginTop: 32, textAlign: "center" }}>
-          <p style={{ color: "#374151", fontSize: ".72rem" }}>Powered by Stockfish · Depth 15 · Use ← → keys to navigate · Drag pieces to explore</p>
+          <p style={{ color: "#9CA392", fontSize: ".72rem" }}>Powered by Stockfish · Depth 15 · Use ← → keys to navigate · Drag pieces to explore</p>
         </div>
       </div>
     </div>
@@ -619,7 +619,7 @@ function MoveButton({
       onMouseLeave={() => setHovered(false)}
       style={{
         padding: "3px 6px", borderRadius: 4, border: "none", cursor: "pointer",
-        background: isActive ? c.bg : hovered ? "rgba(255,255,255,.04)" : "transparent",
+        background: isActive ? c.bg : hovered ? "rgba(0,0,0,.04)" : "transparent",
         color: isActive ? c.text : "#D1D5DB",
         fontSize: ".74rem", fontWeight: isActive ? 700 : 500,
         fontFamily: "'JetBrains Mono', monospace",
@@ -641,25 +641,25 @@ function MoveButton({
 // ── Styles ─────────────────────────────────────────────────────────────────────
 
 const pageStyle: CSSProperties = {
-  minHeight: "100vh", background: "#0A0A0F",
+  minHeight: "100vh", background: "#FAFAF7",
   display: "flex", flexDirection: "column", alignItems: "center",
   padding: "32px 24px", position: "relative", overflow: "hidden",
 };
 
 const centerPage: CSSProperties = {
-  minHeight: "100vh", background: "#0A0A0F",
+  minHeight: "100vh", background: "#FAFAF7",
   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
 };
 
 const bgGrid: CSSProperties = {
   position: "fixed", inset: 0, pointerEvents: "none",
-  backgroundImage: "linear-gradient(rgba(16,185,129,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(16,185,129,0.015) 1px, transparent 1px)",
+  backgroundImage: "linear-gradient(rgba(45,106,79,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(45,106,79,0.015) 1px, transparent 1px)",
   backgroundSize: "72px 72px",
 };
 
 const bgGlow: CSSProperties = {
   position: "fixed", inset: 0, pointerEvents: "none",
-  background: "radial-gradient(ellipse at 50% 0%, rgba(16,185,129,0.06) 0%, transparent 50%)",
+  background: "radial-gradient(ellipse at 50% 0%, rgba(45,106,79,0.06) 0%, transparent 50%)",
 };
 
 const spinnerStyle: CSSProperties = {
@@ -670,6 +670,6 @@ const spinnerStyle: CSSProperties = {
 
 const playerCard: CSSProperties = {
   padding: "16px 18px",
-  background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.06)",
+  background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)",
   borderRadius: 12,
 };

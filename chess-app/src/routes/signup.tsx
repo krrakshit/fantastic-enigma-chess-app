@@ -8,7 +8,7 @@ export const Route = createFileRoute("/signup")({
   component: SignUpPage,
 });
 
-const P = "#10B981";
+const P = "#2D6A4F";
 
 function GoogleIcon() {
   return (
@@ -122,7 +122,7 @@ function SignUpPage() {
       {["♚", "♛", "♜", "♝", "♞", "♟"].map((p, i) => (
         <div key={i} style={{
           position: "fixed", fontSize: `${1.8 + i * 0.25}rem`,
-          color: "rgba(16,185,129,0.03)", pointerEvents: "none",
+          color: "rgba(45,106,79,0.03)", pointerEvents: "none",
           top: `${8 + i * 14}%`,
           ...(i % 2 === 0 ? { left: `${2 + i * 2.5}%` } : { right: `${2 + i * 2.5}%` }),
           animation: `float ${6 + i}s ease-in-out infinite alternate`,
@@ -140,10 +140,10 @@ function SignUpPage() {
           <div style={{ fontSize: "2.5rem", marginBottom: 10, animation: "float 4s ease-in-out infinite alternate" }}>♚</div>
           <h1 style={{
             fontSize: "clamp(1.7rem, 5vw, 2.3rem)", fontWeight: 800,
-            background: `linear-gradient(135deg, ${P}, #34D399)`,
+            background: `linear-gradient(135deg, ${P}, #40916C)`,
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", margin: "0 0 6px",
           }}>Create account</h1>
-          <p style={{ color: "#6B7280", fontSize: ".88rem" }}>Join the arena. Claim your throne.</p>
+          <p style={{ color: "#6B7264", fontSize: ".88rem" }}>Join the arena. Claim your throne.</p>
         </div>
 
         <div style={card}>
@@ -155,8 +155,8 @@ function SignUpPage() {
               disabled={!!socialLoading}
               onClick={() => handleSocial("google")}
               style={{ ...socialBtn, opacity: socialLoading === "github" ? 0.5 : 1 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.15)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.05)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.08)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.025)"; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.15)"; (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,.06)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,.08)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.6)"; }}
             >
               {socialLoading === "google" ? <Spinner /> : <GoogleIcon />} Sign up with Google
             </button>
@@ -166,8 +166,8 @@ function SignUpPage() {
               disabled={!!socialLoading}
               onClick={() => handleSocial("github")}
               style={{ ...socialBtn, opacity: socialLoading === "google" ? 0.5 : 1 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.15)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.05)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.08)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.025)"; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.15)"; (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,.06)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,.08)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.6)"; }}
             >
               {socialLoading === "github" ? <Spinner /> : <GitHubIcon />} Sign up with GitHub
             </button>
@@ -175,9 +175,9 @@ function SignUpPage() {
 
           {/* Divider */}
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0 18px" }}>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.06)" }} />
-            <span style={{ color: "#4B5563", fontSize: ".72rem", letterSpacing: ".06em", fontWeight: 500 }}>OR</span>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.06)" }} />
+            <div style={{ flex: 1, height: 1, background: "rgba(0,0,0,.06)" }} />
+            <span style={{ color: "#8B9080", fontSize: ".72rem", letterSpacing: ".06em", fontWeight: 500 }}>OR</span>
+            <div style={{ flex: 1, height: 1, background: "rgba(0,0,0,.06)" }} />
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -193,16 +193,16 @@ function SignUpPage() {
                   value={form.username} onChange={set("username")} autoComplete="username"
                   style={{
                     ...inputStyle, paddingRight: 36,
-                    borderColor: usernameState === "available" ? "rgba(16,185,129,.4)"
+                    borderColor: usernameState === "available" ? "rgba(45,106,79,.4)"
                       : usernameState === "taken" || usernameState === "invalid" ? "rgba(239,68,68,.4)"
-                      : "rgba(255,255,255,.08)",
+                      : "rgba(0,0,0,.08)",
                   }}
                   onFocus={(e) => { if (usernameState === "idle") e.currentTarget.style.borderColor = P; }}
-                  onBlur={(e) => { if (usernameState === "idle") e.currentTarget.style.borderColor = "rgba(255,255,255,.08)"; }}
+                  onBlur={(e) => { if (usernameState === "idle") e.currentTarget.style.borderColor = "rgba(0,0,0,.08)"; }}
                 />
                 <div style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: ".85rem" }}>
                   {usernameState === "checking" && (
-                    <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid #1F2937", borderTop: `2px solid ${P}`, borderRadius: "50%", animation: "spin .7s linear infinite" }} />
+                    <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid #E5E5E0", borderTop: `2px solid ${P}`, borderRadius: "50%", animation: "spin .7s linear infinite" }} />
                   )}
                   {usernameState === "available" && <span style={{ color: P }}>✓</span>}
                   {(usernameState === "taken" || usernameState === "invalid") && <span style={{ color: "#EF4444" }}>✗</span>}
@@ -211,7 +211,7 @@ function SignUpPage() {
               {form.username && usernameState !== "idle" && usernameState !== "checking" && (
                 <p style={{ fontSize: ".68rem", marginTop: 4, color: usernameState === "available" ? P : "#EF4444" }}>{usernameMsg}</p>
               )}
-              <p style={{ fontSize: ".62rem", marginTop: 3, color: "#374151" }}>3–30 chars · letters, numbers, _ and . only</p>
+              <p style={{ fontSize: ".62rem", marginTop: 3, color: "#9CA392" }}>3–30 chars · letters, numbers, _ and . only</p>
             </div>
 
             <Field label="Email Address" id="email" type="email" placeholder="rakshit@example.com" value={form.email} onChange={set("email")} autoComplete="email" />
@@ -225,7 +225,7 @@ function SignUpPage() {
                   onChange={set("password")} autoComplete="new-password"
                   style={{ ...inputStyle, paddingRight: 44 }}
                   onFocus={(e) => (e.currentTarget.style.borderColor = P)}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,.08)")}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(0,0,0,.08)")}
                 />
                 <button type="button" onClick={() => setShowPw(v => !v)} style={eyeBtn} aria-label="Toggle password">
                   {showPw ? "🙈" : "👁"}
@@ -237,7 +237,7 @@ function SignUpPage() {
                     {[0, 1, 2, 3].map(i => (
                       <div key={i} style={{
                         flex: 1, height: 3, borderRadius: 2,
-                        background: i < pwStrength.score ? pwStrength.color : "rgba(255,255,255,.06)",
+                        background: i < pwStrength.score ? pwStrength.color : "rgba(0,0,0,.06)",
                         transition: "background .2s",
                       }} />
                     ))}
@@ -256,13 +256,13 @@ function SignUpPage() {
                 style={{
                   ...inputStyle,
                   borderColor: form.confirm && form.confirm !== form.password ? "rgba(239,68,68,.4)"
-                    : form.confirm && form.confirm === form.password ? "rgba(16,185,129,.4)"
-                    : "rgba(255,255,255,.08)",
+                    : form.confirm && form.confirm === form.password ? "rgba(45,106,79,.4)"
+                    : "rgba(0,0,0,.08)",
                 }}
                 onFocus={(e) => (e.currentTarget.style.borderColor = P)}
                 onBlur={(e) => {
                   e.currentTarget.style.borderColor = form.confirm && form.confirm !== form.password
-                    ? "rgba(239,68,68,.4)" : form.confirm === form.password ? "rgba(16,185,129,.4)" : "rgba(255,255,255,.08)";
+                    ? "rgba(239,68,68,.4)" : form.confirm === form.password ? "rgba(45,106,79,.4)" : "rgba(0,0,0,.08)";
                 }}
               />
               {form.confirm && form.confirm !== form.password && (
@@ -272,10 +272,10 @@ function SignUpPage() {
 
             <button type="submit" disabled={loading} id="signup-submit" style={{
               ...submitBtn,
-              background: loading ? "rgba(255,255,255,.04)" : `linear-gradient(135deg, ${P}, #34D399)`,
-              color: loading ? "#4B5563" : "#0A0A0F",
+              background: loading ? "rgba(0,0,0,.04)" : `linear-gradient(135deg, ${P}, #40916C)`,
+              color: loading ? "#4B5563" : "#FAFAF7",
               cursor: loading ? "not-allowed" : "pointer",
-              boxShadow: loading ? "none" : "0 6px 28px rgba(16,185,129,.2)",
+              boxShadow: loading ? "none" : "0 6px 28px rgba(45,106,79,.2)",
             }}
               onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
@@ -288,7 +288,7 @@ function SignUpPage() {
               ) : "Create Account →"}
             </button>
 
-            <p style={{ textAlign: "center", color: "#6B7280", fontSize: ".82rem", margin: 0 }}>
+            <p style={{ textAlign: "center", color: "#6B7264", fontSize: ".82rem", margin: 0 }}>
               Already have an account?{" "}
               <Link to="/signin" style={{ color: P, textDecoration: "none", fontWeight: 600 }}>Sign in →</Link>
             </p>
@@ -310,14 +310,14 @@ function Field({ label, id, type, placeholder, value, onChange, autoComplete }: 
       <input id={id} type={type} placeholder={placeholder} value={value}
         onChange={onChange} autoComplete={autoComplete} style={inputStyle}
         onFocus={(e) => (e.currentTarget.style.borderColor = P)}
-        onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,.08)")}
+        onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(0,0,0,.08)")}
       />
     </div>
   );
 }
 
 function getPasswordStrength(pw: string): { score: number; label: string; color: string } {
-  if (!pw) return { score: 0, label: "", color: "#4B5563" };
+  if (!pw) return { score: 0, label: "", color: "#8B9080" };
   let score = 0;
   if (pw.length >= 6) score++;
   if (pw.length >= 10) score++;
@@ -327,8 +327,8 @@ function getPasswordStrength(pw: string): { score: number; label: string; color:
     { label: "Too weak", color: "#EF4444" },
     { label: "Weak", color: "#F97316" },
     { label: "Fair", color: "#F59E0B" },
-    { label: "Strong", color: "#10B981" },
-    { label: "Very strong", color: "#34D399" },
+    { label: "Strong", color: "#2D6A4F" },
+    { label: "Very strong", color: "#40916C" },
   ];
   return { score, ...levels[score] };
 }
@@ -336,27 +336,27 @@ function getPasswordStrength(pw: string): { score: number; label: string; color:
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const page: CSSProperties = {
-  minHeight: "100vh", background: "#0A0A0F", color: "#fff",
+  minHeight: "100vh", background: "#FAFAF7", color: "#1A1A1A",
   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
   padding: "48px 20px", position: "relative", overflow: "hidden",
 };
 const card: CSSProperties = {
-  background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)",
-  borderRadius: 16, padding: "32px 36px", boxShadow: "0 24px 64px rgba(0,0,0,.5)",
+  background: "rgba(255,255,255,.6)", border: "1px solid rgba(0,0,0,.06)",
+  borderRadius: 16, padding: "32px 36px", boxShadow: "0 24px 64px rgba(0,0,0,.06)",
 };
 const labelStyle: CSSProperties = {
-  display: "block", fontSize: ".68rem", color: "#6B7280",
+  display: "block", fontSize: ".68rem", color: "#6B7264",
   letterSpacing: ".08em", marginBottom: 7, fontWeight: 600,
 };
 const inputStyle: CSSProperties = {
   width: "100%", padding: "11px 14px",
-  background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)",
-  borderRadius: 8, color: "#E5E7EB", fontSize: ".9rem",
+  background: "rgba(255,255,255,.55)", border: "1px solid rgba(0,0,0,.08)",
+  borderRadius: 8, color: "#1A1A1A", fontSize: ".9rem",
   outline: "none", transition: "border-color .2s", boxSizing: "border-box",
 };
 const eyeBtn: CSSProperties = {
   position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
-  background: "none", border: "none", color: "#4B5563", cursor: "pointer",
+  background: "none", border: "none", color: "#8B9080", cursor: "pointer",
   fontSize: ".9rem", padding: 0, lineHeight: 1,
 };
 const submitBtn: CSSProperties = {
@@ -367,8 +367,8 @@ const submitBtn: CSSProperties = {
 const socialBtn: CSSProperties = {
   display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
   padding: "11px 0", borderRadius: 10,
-  background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.08)",
-  color: "#D1D5DB", fontSize: ".88rem", fontWeight: 500,
+  background: "rgba(255,255,255,.6)", border: "1px solid rgba(0,0,0,.08)",
+  color: "#2D2D2D", fontSize: ".88rem", fontWeight: 500,
   cursor: "pointer", transition: "all .2s", width: "100%",
 };
 const errorBanner: CSSProperties = {
@@ -377,15 +377,15 @@ const errorBanner: CSSProperties = {
   color: "#EF4444", fontSize: ".82rem", display: "flex", alignItems: "center", gap: 8,
 };
 const backLink: CSSProperties = {
-  color: "#4B5563", textDecoration: "none", fontSize: ".82rem",
+  color: "#8B9080", textDecoration: "none", fontSize: ".82rem",
   display: "block", marginBottom: 12, transition: "color .2s",
 };
 const bgGrid: CSSProperties = {
   position: "fixed", inset: 0, pointerEvents: "none",
-  backgroundImage: "linear-gradient(rgba(16,185,129,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(16,185,129,.015) 1px,transparent 1px)",
+  backgroundImage: "linear-gradient(rgba(45,106,79,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(45,106,79,.015) 1px,transparent 1px)",
   backgroundSize: "72px 72px",
 };
 const bgGlow: CSSProperties = {
   position: "fixed", inset: 0, pointerEvents: "none",
-  background: "radial-gradient(ellipse at 50% 20%,rgba(16,185,129,.06) 0%,transparent 55%)",
+  background: "radial-gradient(ellipse at 50% 20%,rgba(45,106,79,.06) 0%,transparent 55%)",
 };

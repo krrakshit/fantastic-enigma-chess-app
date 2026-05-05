@@ -7,7 +7,7 @@ export const Route = createFileRoute("/signin")({
   component: SignInPage,
 });
 
-const P = "#10B981";
+const P = "#2D6A4F";
 
 function GoogleIcon() {
   return (
@@ -84,7 +84,7 @@ function SignInPage() {
       {["♚", "♛", "♜", "♝", "♞"].map((p, i) => (
         <div key={i} style={{
           position: "fixed", fontSize: `${2.2 + i * 0.3}rem`,
-          color: "rgba(16,185,129,0.03)", pointerEvents: "none", userSelect: "none",
+          color: "rgba(45,106,79,0.03)", pointerEvents: "none", userSelect: "none",
           top: `${12 + i * 16}%`,
           ...(i % 2 === 0 ? { left: `${3 + i * 3}%` } : { right: `${3 + i * 3}%` }),
           animation: `float ${6 + i}s ease-in-out infinite alternate`,
@@ -103,11 +103,11 @@ function SignInPage() {
           <div style={{ fontSize: "2.8rem", marginBottom: 10, animation: "float 4s ease-in-out infinite alternate" }}>♛</div>
           <h1 style={{
             fontSize: "clamp(1.8rem, 5vw, 2.4rem)", fontWeight: 800,
-            background: `linear-gradient(135deg, ${P}, #34D399)`,
+            background: `linear-gradient(135deg, ${P}, #40916C)`,
             WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
             margin: "0 0 6px",
           }}>Welcome back</h1>
-          <p style={{ color: "#6B7280", fontSize: ".9rem" }}>Sign in to continue your reign</p>
+          <p style={{ color: "#6B7264", fontSize: ".9rem" }}>Sign in to continue your reign</p>
         </div>
 
         {/* Card */}
@@ -120,8 +120,8 @@ function SignInPage() {
               disabled={!!socialLoading}
               onClick={() => handleSocial("google")}
               style={{ ...socialBtn, opacity: socialLoading === "github" ? 0.5 : 1 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.15)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.05)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.08)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.025)"; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.15)"; (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,.06)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,.08)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.6)"; }}
             >
               {socialLoading === "google" ? <Spinner /> : <GoogleIcon />} Continue with Google
             </button>
@@ -131,8 +131,8 @@ function SignInPage() {
               disabled={!!socialLoading}
               onClick={() => handleSocial("github")}
               style={{ ...socialBtn, opacity: socialLoading === "google" ? 0.5 : 1 }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.15)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.05)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.08)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.025)"; }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,.15)"; (e.currentTarget as HTMLElement).style.background = "rgba(0,0,0,.06)"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = "rgba(0,0,0,.08)"; (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,.6)"; }}
             >
               {socialLoading === "github" ? <Spinner /> : <GitHubIcon />} Continue with GitHub
             </button>
@@ -140,9 +140,9 @@ function SignInPage() {
 
           {/* Divider */}
           <div style={{ display: "flex", alignItems: "center", gap: 12, margin: "4px 0 18px" }}>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.06)" }} />
-            <span style={{ color: "#4B5563", fontSize: ".72rem", letterSpacing: ".06em", fontWeight: 500 }}>OR</span>
-            <div style={{ flex: 1, height: 1, background: "rgba(255,255,255,.06)" }} />
+            <div style={{ flex: 1, height: 1, background: "rgba(0,0,0,.06)" }} />
+            <span style={{ color: "#8B9080", fontSize: ".72rem", letterSpacing: ".06em", fontWeight: 500 }}>OR</span>
+            <div style={{ flex: 1, height: 1, background: "rgba(0,0,0,.06)" }} />
           </div>
 
           <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 18 }}>
@@ -164,7 +164,7 @@ function SignInPage() {
                   onChange={set("password")} autoComplete="current-password"
                   style={{ ...inputStyle, paddingRight: 44 }}
                   onFocus={(e) => (e.currentTarget.style.borderColor = P)}
-                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,.08)")}
+                  onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(0,0,0,.08)")}
                 />
                 <button type="button" onClick={() => setShowPw(v => !v)}
                   style={eyeBtn} aria-label={showPw ? "Hide password" : "Show password"}
@@ -174,10 +174,10 @@ function SignInPage() {
 
             <button type="submit" disabled={loading} id="signin-submit" style={{
               ...submitBtn,
-              background: loading ? "rgba(255,255,255,.04)" : `linear-gradient(135deg, ${P}, #34D399)`,
-              color: loading ? "#4B5563" : "#0A0A0F",
+              background: loading ? "rgba(0,0,0,.04)" : `linear-gradient(135deg, ${P}, #40916C)`,
+              color: loading ? "#4B5563" : "#FAFAF7",
               cursor: loading ? "not-allowed" : "pointer",
-              boxShadow: loading ? "none" : "0 6px 28px rgba(16,185,129,.2)",
+              boxShadow: loading ? "none" : "0 6px 28px rgba(45,106,79,.2)",
             }}
               onMouseEnter={(e) => { if (!loading) (e.currentTarget as HTMLElement).style.transform = "translateY(-2px)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.transform = "translateY(0)"; }}
@@ -190,7 +190,7 @@ function SignInPage() {
               ) : "Sign In"}
             </button>
 
-            <p style={{ textAlign: "center", color: "#6B7280", fontSize: ".82rem", margin: 0 }}>
+            <p style={{ textAlign: "center", color: "#6B7264", fontSize: ".82rem", margin: 0 }}>
               No account?{" "}
               <Link to="/signup" style={{ color: P, textDecoration: "none", fontWeight: 600 }}>Create one →</Link>
             </p>
@@ -222,7 +222,7 @@ function Field({ label, id, type, placeholder, value, onChange, autoComplete }: 
       <input id={id} type={type} placeholder={placeholder} value={value}
         onChange={onChange} autoComplete={autoComplete} style={inputStyle}
         onFocus={(e) => (e.currentTarget.style.borderColor = P)}
-        onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,.08)")}
+        onBlur={(e) => (e.currentTarget.style.borderColor = "rgba(0,0,0,.08)")}
       />
     </div>
   );
@@ -231,31 +231,31 @@ function Field({ label, id, type, placeholder, value, onChange, autoComplete }: 
 // ── Styles ────────────────────────────────────────────────────────────────────
 
 const page: CSSProperties = {
-  minHeight: "100vh", background: "#0A0A0F", color: "#fff",
+  minHeight: "100vh", background: "#FAFAF7", color: "#1A1A1A",
   display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
   padding: "48px 20px", position: "relative", overflow: "hidden",
 };
 
 const card: CSSProperties = {
-  background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.06)",
-  borderRadius: 16, padding: "32px 36px", boxShadow: "0 24px 64px rgba(0,0,0,.5)",
+  background: "rgba(255,255,255,.6)", border: "1px solid rgba(0,0,0,.06)",
+  borderRadius: 16, padding: "32px 36px", boxShadow: "0 24px 64px rgba(0,0,0,.06)",
 };
 
 const labelStyle: CSSProperties = {
-  display: "block", fontSize: ".7rem", color: "#6B7280",
+  display: "block", fontSize: ".7rem", color: "#6B7264",
   letterSpacing: ".08em", marginBottom: 7, fontWeight: 600,
 };
 
 const inputStyle: CSSProperties = {
   width: "100%", padding: "11px 14px",
-  background: "rgba(255,255,255,.03)", border: "1px solid rgba(255,255,255,.08)",
-  borderRadius: 8, color: "#E5E7EB", fontSize: ".9rem",
+  background: "rgba(255,255,255,.55)", border: "1px solid rgba(0,0,0,.08)",
+  borderRadius: 8, color: "#1A1A1A", fontSize: ".9rem",
   outline: "none", transition: "border-color .2s", boxSizing: "border-box",
 };
 
 const eyeBtn: CSSProperties = {
   position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)",
-  background: "none", border: "none", color: "#4B5563", cursor: "pointer",
+  background: "none", border: "none", color: "#8B9080", cursor: "pointer",
   fontSize: ".9rem", padding: 0, lineHeight: 1,
 };
 
@@ -268,8 +268,8 @@ const submitBtn: CSSProperties = {
 const socialBtn: CSSProperties = {
   display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
   padding: "11px 0", borderRadius: 10,
-  background: "rgba(255,255,255,.025)", border: "1px solid rgba(255,255,255,.08)",
-  color: "#D1D5DB", fontSize: ".88rem", fontWeight: 500,
+  background: "rgba(255,255,255,.6)", border: "1px solid rgba(0,0,0,.08)",
+  color: "#2D2D2D", fontSize: ".88rem", fontWeight: 500,
   cursor: "pointer", transition: "all .2s", width: "100%",
 };
 
@@ -280,17 +280,17 @@ const errorBanner: CSSProperties = {
 };
 
 const backLink: CSSProperties = {
-  color: "#4B5563", textDecoration: "none", fontSize: ".82rem",
+  color: "#8B9080", textDecoration: "none", fontSize: ".82rem",
   display: "block", marginBottom: 12, transition: "color .2s",
 };
 
 const bgGrid: CSSProperties = {
   position: "fixed", inset: 0, pointerEvents: "none",
-  backgroundImage: "linear-gradient(rgba(16,185,129,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(16,185,129,.015) 1px,transparent 1px)",
+  backgroundImage: "linear-gradient(rgba(45,106,79,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(45,106,79,.015) 1px,transparent 1px)",
   backgroundSize: "72px 72px",
 };
 
 const bgGlow: CSSProperties = {
   position: "fixed", inset: 0, pointerEvents: "none",
-  background: "radial-gradient(ellipse at 50% 25%,rgba(16,185,129,.06) 0%,transparent 55%)",
+  background: "radial-gradient(ellipse at 50% 25%,rgba(45,106,79,.06) 0%,transparent 55%)",
 };

@@ -300,6 +300,10 @@ export function useChessWebSocket(
       if (gameStartTime.current === null) {
         gameStartTime.current = Date.now();
       }
+      // Start move timer so the first move records real elapsed time
+      if (moveStartTime.current === null) {
+        moveStartTime.current = Date.now();
+      }
       // Play game start sound once
       if (!gameStartSoundPlayed.current) {
         gameStartSoundPlayed.current = true;
@@ -573,10 +577,9 @@ export function useChessWebSocket(
           if (roomData) {
             const now = Date.now();
             if (gameStartTime.current === null) gameStartTime.current = now;
-            // First move: elapsed is 0 (no prior reference point)
-            const elapsed = moveStartTime.current !== null
-              ? now - moveStartTime.current
-              : 0;
+            // moveStartTime is set when bothPlayersReady triggers,
+            // so it's always valid here. Fallback to now just in case.
+            const elapsed = now - (moveStartTime.current ?? now);
             moveStartTime.current = now;
             const points = move.captured
               ? (PIECE_VALUES[move.captured] ?? 0)

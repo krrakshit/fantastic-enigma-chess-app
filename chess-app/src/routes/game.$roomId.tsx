@@ -94,7 +94,7 @@ function MoveHistory({ moves, moveTimes }: { moves: Move[]; moveTimes: number[] 
 
 // ── Chat Panel ────────────────────────────────────────────────────────────────
 
-function ChatPanel({ messages, onSend, myId }: { messages: ChatMessage[]; onSend: (msg: string) => void; myId: string }) {
+function ChatPanel({ messages, onSend, myId, containerStyle }: { messages: ChatMessage[]; onSend: (msg: string) => void; myId: string; containerStyle?: React.CSSProperties }) {
   const endRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState("");
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
@@ -104,6 +104,7 @@ function ChatPanel({ messages, onSend, myId }: { messages: ChatMessage[]; onSend
       background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)",
       borderRadius: 10, padding: 12, display: "flex", flexDirection: "column",
       minHeight: 140, maxHeight: 200,
+      ...containerStyle,
     }}>
       <div style={{ fontSize: ".6rem", color: "#4B5563", fontWeight: 700, letterSpacing: ".1em", marginBottom: 5 }}>CHAT</div>
       <div style={{ height: 1, background: "rgba(255,255,255,.04)", marginBottom: 5 }} />
@@ -286,8 +287,8 @@ function GameOverOverlay({ status, turn, myColor, gameResult, myId, myPoints, op
     <div style={{ position: "fixed", inset: 0, zIndex: 2000, background: "rgba(0,0,0,.8)", backdropFilter: "blur(8px)", display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{
         background: "linear-gradient(135deg,#111116,#1a1a22)", border: `1px solid rgba(16,185,129,.15)`,
-        borderRadius: 18, padding: "44px 52px", textAlign: "center",
-        boxShadow: "0 32px 80px rgba(0,0,0,.6)", maxWidth: 380,
+        borderRadius: 18, padding: "32px 24px", textAlign: "center",
+        boxShadow: "0 32px 80px rgba(0,0,0,.6)", maxWidth: 380, width: "90%",
       }}>
         <div style={{ fontSize: "3.5rem", marginBottom: 12 }}>{emoji}</div>
         <h2 style={{
@@ -472,8 +473,10 @@ function GameRoom() {
 
   // Dynamic board sizing based on viewport
   const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
+  const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
+  const isMobile = viewportWidth < 768;
   useEffect(() => {
-    const onResize = () => setViewportHeight(window.innerHeight);
+    const onResize = () => { setViewportHeight(window.innerHeight); setViewportWidth(window.innerWidth); };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -513,6 +516,7 @@ function GameRoom() {
   const [soundMuted, setSoundMuted] = useState(getMuted());
   const [pgnCopied, setPgnCopied] = useState(false);
   const [currentTheme, setCurrentTheme] = useState(getSavedTheme());
+  const [mobileTab, setMobileTab] = useState<"moves" | "chat">("moves");
   const themeColors = getThemeColors(currentTheme);
 
   const handleThemeChange = (themeName: string) => {
@@ -520,9 +524,11 @@ function GameRoom() {
     setCurrentTheme(themeName);
   };
 
-  // Compute board size to fit viewport: subtract padding (48px), player strips (~100px), gaps (~20px)
+  // Compute board size to fit viewport
   const maxBoardHeight = viewportHeight - 168;
-  const computedSquareSize = Math.min(68, Math.max(40, Math.floor(maxBoardHeight / 8)));
+  const maxBoardWidth = isMobile ? viewportWidth - 24 : 9999; // 12px padding each side on mobile
+  const maxSquareFromWidth = Math.floor((maxBoardWidth - 6) / 8); // subtract border
+  const computedSquareSize = Math.min(68, Math.max(36, Math.min(Math.floor(maxBoardHeight / 8), maxSquareFromWidth)));
   const computedPieceSize = Math.round(computedSquareSize * 0.82);
 
   const boardTheme = {
@@ -573,7 +579,7 @@ function GameRoom() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#0A0A0F", color: "#fff", position: "relative", overflow: "hidden", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "16px 20px" }}>
+    <div style={{ minHeight: "100vh", background: "#0A0A0F", color: "#fff", position: "relative", overflow: isMobile ? "auto" : "hidden", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: isMobile ? "8px 6px" : "16px 20px" }}>
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", backgroundImage: "linear-gradient(rgba(16,185,129,.015) 1px,transparent 1px),linear-gradient(90deg,rgba(16,185,129,.015) 1px,transparent 1px)", backgroundSize: "60px 60px" }} />
       <div style={{ position: "fixed", inset: 0, pointerEvents: "none", background: "radial-gradient(ellipse at 30% 40%,rgba(16,185,129,.04) 0%,transparent 55%)" }} />
 
@@ -601,7 +607,7 @@ function GameRoom() {
       {/* Game Started Animation */}
       <GameStartOverlay ready={game.bothPlayersReady} />
 
-      <div style={{ display: "flex", gap: 24, alignItems: "flex-start", position: "relative", zIndex: 1, justifyContent: "center", animation: "fadeIn .4s ease" }}>
+      <div style={{ display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 10 : 24, alignItems: isMobile ? "center" : "flex-start", position: "relative", zIndex: 1, justifyContent: "center", animation: "fadeIn .4s ease", width: isMobile ? "100%" : "auto" }}>
         {/* Board column */}
         <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center", flexShrink: 0 }}>
           <div style={{ width: boardW }}>
@@ -623,9 +629,10 @@ function GameRoom() {
         </div>
 
         {/* Sidebar */}
-        <div style={{ width: 260, display: "flex", flexDirection: "column", gap: 10, maxHeight: `${viewportHeight - 48}px`, overflowY: "auto" }}>
+        <div style={{ width: isMobile ? Math.min(boardW, viewportWidth - 12) : 260, display: "flex", flexDirection: "column", gap: 10, maxHeight: isMobile ? "none" : `${viewportHeight - 48}px`, overflowY: isMobile ? "visible" : "auto" }}>
 
           {/* Header card */}
+          {!isMobile && (
           <div style={{ padding: "16px 18px", background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)", borderRadius: 10 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
               <Link to="/" style={{ color: "#4B5563", textDecoration: "none", fontSize: ".78rem" }}>← Home</Link>
@@ -648,6 +655,7 @@ function GameRoom() {
             }}>Chess Arena</h1>
             <div style={{ fontSize: ".65rem", color: "#374151", fontFamily: "'JetBrains Mono', monospace" }}>Room: {roomId}</div>
           </div>
+          )}
 
           {/* Status */}
           {!isOver && (
@@ -670,11 +678,27 @@ function GameRoom() {
             </div>
           )}
 
-          {/* Move history */}
+          {/* Mobile Tab Selector for Moves / Chat */}
+          {isMobile && (
+            <div style={{ display: "flex", background: "rgba(255,255,255,.03)", borderRadius: 8, border: "1px solid rgba(255,255,255,.06)", padding: 3, gap: 3 }}>
+              {(["moves", "chat"] as const).map((tab) => (
+                <button key={tab} onClick={() => setMobileTab(tab)} style={{
+                  flex: 1, padding: "7px 0", borderRadius: 6, border: "none", cursor: "pointer",
+                  background: mobileTab === tab ? "rgba(16,185,129,.12)" : "transparent",
+                  color: mobileTab === tab ? P : "#6B7280",
+                  fontSize: ".75rem", fontWeight: 700, letterSpacing: ".05em", textTransform: "uppercase",
+                  transition: "all .2s",
+                }}>{tab === "moves" ? "📋 Moves" : "💬 Chat"}</button>
+              ))}
+            </div>
+          )}
+
+          {/* Move history - show on desktop always, on mobile only when tab selected */}
+          {(!isMobile || mobileTab === "moves") && (
           <div style={{
-            flex: 1, background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)",
-            borderRadius: 10, padding: 14, display: "flex", flexDirection: "column",
-            minHeight: 240, maxHeight: 340,
+            flex: isMobile ? "none" : 1, background: "rgba(255,255,255,.02)", border: "1px solid rgba(255,255,255,.05)",
+            borderRadius: 10, padding: isMobile ? 10 : 14, display: "flex", flexDirection: "column",
+            minHeight: isMobile ? 180 : 240, maxHeight: isMobile ? 220 : 340,
           }}>
             <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
               <div style={{ width: 28 }} />
@@ -684,8 +708,11 @@ function GameRoom() {
             <div style={{ height: 1, background: "rgba(255,255,255,.04)", marginBottom: 6 }} />
             <MoveHistory moves={game.moveHistory} moveTimes={game.moveTimes} />
           </div>
+          )}
 
-          {isGuest ? (
+          {/* Chat - show on desktop always, on mobile only when tab selected */}
+          {(!isMobile || mobileTab === "chat") && (
+            <>{isGuest ? (
             <div style={{
               padding: "14px 18px", borderRadius: 10,
               background: "rgba(245,158,11,.04)", border: "1px solid rgba(245,158,11,.12)",
@@ -697,7 +724,8 @@ function GameRoom() {
               </p>
             </div>
           ) : (
-            <ChatPanel messages={game.chatMessages} onSend={game.sendChat} myId={myId} />
+            <ChatPanel messages={game.chatMessages} onSend={game.sendChat} myId={myId} containerStyle={isMobile ? { minHeight: 180, maxHeight: 240 } : undefined} />
+          )}</>
           )}
 
           {/* ── Draw Offer Banner ── */}
@@ -845,6 +873,7 @@ function GameRoom() {
                 ))}
               </div>
             </div>
+            {!isMobile && (
             <Link to="/game" style={{
               display: "block", textAlign: "center", padding: "8px 0",
               border: `1px solid rgba(16,185,129,.15)`, borderRadius: 8,
@@ -853,6 +882,7 @@ function GameRoom() {
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "rgba(16,185,129,.06)"; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
             >New Game</Link>
+            )}
           </div>
         </div>
       </div>

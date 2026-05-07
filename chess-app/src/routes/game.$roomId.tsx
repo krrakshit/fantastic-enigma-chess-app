@@ -147,14 +147,14 @@ function ChatPanel({ messages, onSend, myId, containerStyle }: { messages: ChatM
 
 // ── Player Strip ──────────────────────────────────────────────────────────────
 
-function PlayerStrip({ label, id, color, isActive, captures, points, timeMs }: {
+function PlayerStrip({ label, id, color, isActive, captures, points, timeMs, compact }: {
   label: string; id: string; color: "w" | "b"; isActive: boolean;
-  captures: { type: string; color: string }[]; points: number; timeMs: number;
+  captures: { type: string; color: string }[]; points: number; timeMs: number; compact?: boolean;
 }) {
   const isLow = timeMs < 60_000;
   return (
     <div style={{
-      padding: "10px 14px", borderRadius: 10,
+      padding: compact ? "6px 10px" : "10px 14px", borderRadius: compact ? 8 : 10,
       background: isActive ? "rgba(45,106,79,.06)" : "rgba(255,255,255,.65)",
       border: `1px solid ${isActive ? "rgba(45,106,79,.25)" : "rgba(0,0,0,.06)"}`,
       transition: "all .3s", display: "flex", alignItems: "center", gap: 10,
@@ -472,12 +472,16 @@ function GameRoom() {
   const [wasRestored, setWasRestored] = useState(false);
 
   // Dynamic board sizing based on viewport
-  const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
+  const [viewportHeight, setViewportHeight] = useState(() => window.visualViewport?.height ?? window.innerHeight);
   const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
   const isMobile = viewportWidth < 768;
   useEffect(() => {
-    const onResize = () => { setViewportHeight(window.innerHeight); setViewportWidth(window.innerWidth); };
-    window.addEventListener("resize", onResize);
+    const updateSize = () => {
+      setViewportHeight(window.visualViewport?.height ?? window.innerHeight);
+      setViewportWidth(window.innerWidth);
+    };
+    window.addEventListener("resize", updateSize);
+    window.visualViewport?.addEventListener("resize", updateSize);
 
     // Lock body scroll on game pages to prevent pull-to-refresh / page bouncing
     const prevOverflow = document.body.style.overflow;
@@ -495,7 +499,8 @@ function GameRoom() {
     document.documentElement.style.overflow = "hidden";
 
     return () => {
-      window.removeEventListener("resize", onResize);
+      window.removeEventListener("resize", updateSize);
+      window.visualViewport?.removeEventListener("resize", updateSize);
       document.body.style.overflow = prevOverflow;
       document.body.style.overscrollBehavior = prevOverscroll;
       document.body.style.position = prevPosition;
@@ -552,7 +557,12 @@ function GameRoom() {
   const mobilePadding = 8; // 4px each side
   const navbarHeight = 48;
   const playerStripHeight = 44; // approximate height of each PlayerStrip
-  const maxBoardHeight = viewportHeight - (isMobile ? navbarHeight + playerStripHeight * 2 + 40 : 168);
+  // On mobile, reserve space for sidebar controls below the board
+  const mobileSidebarMinHeight = 200; // min space for status + tabs + controls
+  const mobileVerticalGaps = 30; // gaps between elements
+  const maxBoardHeight = viewportHeight - (isMobile
+    ? navbarHeight + playerStripHeight * 2 + mobileSidebarMinHeight + mobileVerticalGaps
+    : 168);
   const maxBoardWidth = isMobile ? viewportWidth - mobilePadding : 9999;
   const borderW = isMobile ? 2 : 3;
   const maxSquareFromWidth = Math.floor((maxBoardWidth - borderW * 2) / 8);
@@ -675,14 +685,14 @@ function GameRoom() {
         </div>
       </nav>
 
-      <div style={{ flex: 1, overflow: isMobile ? "auto" : "hidden", display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 8 : 24, alignItems: isMobile ? "center" : "flex-start", justifyContent: "center", position: "relative", zIndex: 1, animation: "fadeIn .4s ease", width: "100%", padding: isMobile ? "4px 4px" : "16px 20px", overscrollBehavior: "none", WebkitOverflowScrolling: "touch" }}>
+      <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 4 : 24, alignItems: isMobile ? "center" : "flex-start", justifyContent: isMobile ? "flex-start" : "center", position: "relative", zIndex: 1, animation: "fadeIn .4s ease", width: "100%", padding: isMobile ? "2px 4px" : "16px 20px", overscrollBehavior: "none" }}>
         {/* Board column */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center", flexShrink: 0, touchAction: "none" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: isMobile ? 2 : 6, alignItems: "center", flexShrink: 0, touchAction: "none" }}>
           <div style={{ width: boardW }}>
             <PlayerStrip label={topIsMe ? "You" : "Opponent"} id={topId} color={topColor}
               isActive={game.turn === topColor} captures={topCaptures}
               points={topIsMe ? game.myPoints : game.opponentPoints}
-              timeMs={topColor === "w" ? game.whiteTime : game.blackTime} />
+              timeMs={topColor === "w" ? game.whiteTime : game.blackTime} compact={isMobile} />
           </div>
           <div style={{ position: "relative" }}>
             {isDisabled && !isOver && <div style={{ position: "absolute", inset: 0, zIndex: 10, cursor: "not-allowed", borderRadius: 4 }} />}
@@ -692,12 +702,12 @@ function GameRoom() {
             <PlayerStrip label={topIsMe ? "Opponent" : "You"} id={bottomId} color={bottomColor}
               isActive={game.turn === bottomColor} captures={bottomCaptures}
               points={topIsMe ? game.opponentPoints : game.myPoints}
-              timeMs={bottomColor === "w" ? game.whiteTime : game.blackTime} />
+              timeMs={bottomColor === "w" ? game.whiteTime : game.blackTime} compact={isMobile} />
           </div>
         </div>
 
         {/* Sidebar */}
-        <div style={{ width: isMobile ? Math.min(boardW, viewportWidth - 12) : 260, display: "flex", flexDirection: "column", gap: 10, maxHeight: isMobile ? "none" : `${viewportHeight - 48}px`, overflowY: isMobile ? "visible" : "auto" }}>
+        <div style={{ width: isMobile ? Math.min(boardW, viewportWidth - 12) : 260, display: "flex", flexDirection: "column", gap: 6, flex: isMobile ? 1 : undefined, minHeight: 0, maxHeight: isMobile ? undefined : `${viewportHeight - 48}px`, overflowY: "auto" }}>
 
           {/* Status */}
           {!isOver && (
@@ -738,9 +748,9 @@ function GameRoom() {
           {/* Move history - show on desktop always, on mobile only when tab selected */}
           {(!isMobile || mobileTab === "moves") && (
           <div style={{
-            flex: isMobile ? "none" : 1, background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)",
-            borderRadius: 10, padding: isMobile ? 10 : 14, display: "flex", flexDirection: "column",
-            minHeight: isMobile ? 180 : 240, maxHeight: isMobile ? 220 : 340,
+            flex: isMobile ? 1 : 1, background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)",
+            borderRadius: 10, padding: isMobile ? 8 : 14, display: "flex", flexDirection: "column",
+            minHeight: isMobile ? 80 : 240, maxHeight: isMobile ? 160 : 340, overflow: "hidden",
           }}>
             <div style={{ display: "flex", gap: 4, marginBottom: 6 }}>
               <div style={{ width: 28 }} />
@@ -766,7 +776,7 @@ function GameRoom() {
               </p>
             </div>
           ) : (
-            <ChatPanel messages={game.chatMessages} onSend={game.sendChat} myId={myId} containerStyle={isMobile ? { minHeight: 180, maxHeight: 240 } : undefined} />
+            <ChatPanel messages={game.chatMessages} onSend={game.sendChat} myId={myId} containerStyle={isMobile ? { minHeight: 100, maxHeight: 160, flex: 1 } : undefined} />
           )}</>
           )}
 
@@ -797,8 +807,8 @@ function GameRoom() {
           {/* ── Game Controls (Resign / Draw / Sound) ── */}
           {!isOver && (
             <div style={{
-              padding: "12px 14px", background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)",
-              borderRadius: 10, display: "flex", gap: 6,
+              padding: isMobile ? "8px 10px" : "12px 14px", background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)",
+              borderRadius: 10, display: "flex", gap: 6, flexShrink: 0,
             }}>
               {/* Resign */}
               {!showResignConfirm ? (
@@ -887,7 +897,7 @@ function GameRoom() {
           )}
 
           {/* Footer info */}
-          <div style={{ padding: "12px 14px", background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)", borderRadius: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ padding: isMobile ? "8px 10px" : "12px 14px", background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)", borderRadius: 10, display: "flex", flexDirection: "column", gap: isMobile ? 4 : 8, flexShrink: 0 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: ".62rem", color: "#8B9080", letterSpacing: ".05em" }}>YOUR COLOR</span>
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>

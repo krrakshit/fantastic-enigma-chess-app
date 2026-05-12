@@ -386,6 +386,60 @@ export async function apiClassifyOpening(moves: string[]): Promise<OpeningClassi
   return data.classifyOpening;
 }
 
+// ─── PGN Analysis ─────────────────────────────────────────────────────────────
+
+export interface PgnMetadata {
+  white: string | null;
+  black: string | null;
+  result: string | null;
+  date: string | null;
+  event: string | null;
+  opening: string | null;
+  eco: string | null;
+  totalMoves: number;
+}
+
+export interface PgnAnalysisResult {
+  analysis: MoveAnalysis[];
+  metadata: PgnMetadata;
+}
+
+/**
+ * Analyses a PGN string using Stockfish. Requires authentication.
+ */
+export async function apiAnalysePgn(
+  pgn: string,
+  depth = 12,
+): Promise<PgnAnalysisResult> {
+  const data = await gql<{ analysePgn: PgnAnalysisResult }>(
+    `query AnalysePgn($pgn: String!, $depth: Int) {
+      analysePgn(pgn: $pgn, depth: $depth) {
+        analysis {
+          moveNumber
+          move
+          color
+          score
+          mate
+          bestMove
+          classification
+        }
+        metadata {
+          white
+          black
+          result
+          date
+          event
+          opening
+          eco
+          totalMoves
+        }
+      }
+    }`,
+    { pgn, depth },
+  );
+  return data.analysePgn;
+}
+
 // ─── Player Profile ───────────────────────────────────────────────────────────
 
 export interface PlayerStats {

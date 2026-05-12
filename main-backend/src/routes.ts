@@ -346,7 +346,7 @@ const typeDefs = gql`
 
   type PgnAnalysisresult {
     analysis : [MoveAnalysis!]!
-    metadata : PgnMetaData!
+    metadata : PgnMetadata!
   }
 
   type PgnMetadata {

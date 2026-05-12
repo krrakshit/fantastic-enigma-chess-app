@@ -334,6 +334,9 @@ app.post("/analyse", async (req, res) => {
   }
 });
 
+const evaluateCache = new Map();
+const MAX_CACHE_SIZE = 5000;
+
 // Position evaluation (MultiPV = N, single position)
 app.post("/evaluate", async (req, res) => {
   const { moves = [], depth = 15, lines = 3 } = req.body;
@@ -344,8 +347,21 @@ app.post("/evaluate", async (req, res) => {
 
   try {
     const numLines = Math.min(Math.max(lines, 1), 5);
+    const cacheKey = `${moves.join(", ")}|${depth}|${numLines}`;
+
+    if (evaluateCache.has(cacheKey)) {
+      return res.json(evaluateCache.get(cacheKey));
+    }
+
     const output = await analysePositionMultiPV(moves, depth, numLines);
     const result = parseMultiPV(output, numLines);
+    
+    if (evaluateCache.size >= MAX_CACHE_SIZE) {
+      const firstKey = evaluateCache.keys().next().value;
+      evaluateCache.delete(firstKey);
+    }
+    evaluateCache.set(cacheKey, result);
+
     res.json(result);
   } catch (err) {
     log.error("Evaluation failed", { error: String(err) });

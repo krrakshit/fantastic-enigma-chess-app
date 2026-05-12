@@ -74,6 +74,10 @@ function HomePage() {
               onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = G; }}
               onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#6B7264"; }}
             >History</Link>
+            <Link to="/analyse/pgn" style={{ color: "#6B7264", textDecoration: "none", fontSize: ".85rem", fontWeight: 500, transition: "color .2s" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = G; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#6B7264"; }}
+            >Analyse PGN</Link>
             <div style={{
               display: "flex", alignItems: "center", gap: 8,
               background: `rgba(45,106,79,.05)`, border: `1px solid rgba(45,106,79,.1)`,

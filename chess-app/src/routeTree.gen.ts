@@ -17,6 +17,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as PlayerUsernameRouteImport } from './routes/player.$username'
 import { Route as GameRoomIdRouteImport } from './routes/game.$roomId'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
+import { Route as AnalysePgnRouteImport } from './routes/analyse.pgn'
 import { Route as AnalyseRoomIdRouteImport } from './routes/analyse.$roomId'
 
 const SignupRoute = SignupRouteImport.update({
@@ -59,6 +60,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/auth/callback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AnalysePgnRoute = AnalysePgnRouteImport.update({
+  id: '/analyse/pgn',
+  path: '/analyse/pgn',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AnalyseRoomIdRoute = AnalyseRoomIdRouteImport.update({
   id: '/analyse/$roomId',
   path: '/analyse/$roomId',
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/analyse/$roomId': typeof AnalyseRoomIdRoute
+  '/analyse/pgn': typeof AnalysePgnRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/game/$roomId': typeof GameRoomIdRoute
   '/player/$username': typeof PlayerUsernameRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/analyse/$roomId': typeof AnalyseRoomIdRoute
+  '/analyse/pgn': typeof AnalysePgnRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/game/$roomId': typeof GameRoomIdRoute
   '/player/$username': typeof PlayerUsernameRoute
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/signin': typeof SigninRoute
   '/signup': typeof SignupRoute
   '/analyse/$roomId': typeof AnalyseRoomIdRoute
+  '/analyse/pgn': typeof AnalysePgnRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/game/$roomId': typeof GameRoomIdRoute
   '/player/$username': typeof PlayerUsernameRoute
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/analyse/$roomId'
+    | '/analyse/pgn'
     | '/auth/callback'
     | '/game/$roomId'
     | '/player/$username'
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/analyse/$roomId'
+    | '/analyse/pgn'
     | '/auth/callback'
     | '/game/$roomId'
     | '/player/$username'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/signin'
     | '/signup'
     | '/analyse/$roomId'
+    | '/analyse/pgn'
     | '/auth/callback'
     | '/game/$roomId'
     | '/player/$username'
@@ -142,6 +154,7 @@ export interface RootRouteChildren {
   SigninRoute: typeof SigninRoute
   SignupRoute: typeof SignupRoute
   AnalyseRoomIdRoute: typeof AnalyseRoomIdRoute
+  AnalysePgnRoute: typeof AnalysePgnRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   PlayerUsernameRoute: typeof PlayerUsernameRoute
 }
@@ -204,6 +217,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/analyse/pgn': {
+      id: '/analyse/pgn'
+      path: '/analyse/pgn'
+      fullPath: '/analyse/pgn'
+      preLoaderRoute: typeof AnalysePgnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/analyse/$roomId': {
       id: '/analyse/$roomId'
       path: '/analyse/$roomId'
@@ -231,6 +251,7 @@ const rootRouteChildren: RootRouteChildren = {
   SigninRoute: SigninRoute,
   SignupRoute: SignupRoute,
   AnalyseRoomIdRoute: AnalyseRoomIdRoute,
+  AnalysePgnRoute: AnalysePgnRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   PlayerUsernameRoute: PlayerUsernameRoute,
 }

@@ -7,6 +7,8 @@ import type { Move } from "chess.js";
 import { useWebSocket } from "../lib/websocket-context";
 import { getMuted, setMuted } from "../lib/sounds";
 import { getThemeColors, getThemeList, saveTheme, getSavedTheme } from "../lib/board-themes";
+import { apiClassifyOpening, type OpeningClassification } from "../lib/auth-client";
+
 
 export const Route = createFileRoute("/game/$roomId")({
   component: GameRoomWrapper,
@@ -548,10 +550,27 @@ function GameRoom() {
   const [mobileTab, setMobileTab] = useState<"moves" | "chat">("moves");
   const themeColors = getThemeColors(currentTheme);
 
+  // Opening classification
+  // Fires at 4 moves (initial), then overwrites at 6 and 8 for better variation accuracy
+  const [opening, setOpening] = useState<OpeningClassification | null>(null);
+  const classifiedAtMoveCount = useRef(0);
+  useEffect(() => {
+    const sanMoves = game.moveHistory.map((m) => m.san);
+    const len = sanMoves.length;
+    const triggerPoints = [8];
+    // Only classify at move 8, not on every move
+    if (triggerPoints.includes(len) && classifiedAtMoveCount.current !== len) {
+      classifiedAtMoveCount.current = len;
+      apiClassifyOpening(sanMoves).then(setOpening).catch(() => {/* silently ignore */});
+    }
+  }, [game.moveHistory]);
+
+
   const handleThemeChange = (themeName: string) => {
     saveTheme(themeName);
     setCurrentTheme(themeName);
   };
+
 
   // Compute board size to fit viewport
   const mobilePadding = 8; // 4px each side
@@ -730,7 +749,33 @@ function GameRoom() {
             </div>
           )}
 
+          {/* Opening Classification */}
+          {opening && (
+            <div style={{
+              padding: "9px 14px", borderRadius: 8,
+              background: "linear-gradient(135deg, rgba(45,106,79,.06), rgba(45,106,79,.02))",
+              border: "1px solid rgba(45,106,79,.15)",
+              animation: "fadeIn .4s ease",
+            }}>
+              <div style={{ fontSize: ".58rem", color: P, fontWeight: 700, letterSpacing: ".1em", marginBottom: 3 }}>
+                ♟ OPENING
+              </div>
+              <div style={{ fontSize: ".82rem", fontWeight: 700, color: "#1A1A1A", lineHeight: 1.3 }}>
+                {opening.opening}
+              </div>
+              {opening.variation && (
+                <div style={{ fontSize: ".7rem", color: "#6B7264", marginTop: 2 }}>{opening.variation}</div>
+              )}
+              {opening.eco && (
+                <div style={{ fontSize: ".6rem", color: "#9CA392", marginTop: 3, fontFamily: "'JetBrains Mono', monospace" }}>
+                  ECO: {opening.eco}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Mobile Tab Selector for Moves / Chat */}
+
           {isMobile && (
             <div style={{ display: "flex", background: "rgba(255,255,255,.55)", borderRadius: 8, border: "1px solid rgba(0,0,0,.06)", padding: 3, gap: 3 }}>
               {(["moves", "chat"] as const).map((tab) => (

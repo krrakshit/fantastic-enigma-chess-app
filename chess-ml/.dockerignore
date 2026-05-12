@@ -1,0 +1,9 @@
+venv/
+processed/
+data/
+__pycache__/
+*.pyc
+*.pgn
+*.csv
+*.npy
+.gitignore

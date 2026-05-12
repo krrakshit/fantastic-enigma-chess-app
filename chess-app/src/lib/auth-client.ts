@@ -360,6 +360,32 @@ export async function apiEvaluatePosition(
   return data.evaluatePosition;
 }
 
+// ─── Opening Classification ────────────────────────────────────────────────────
+
+export interface OpeningClassification {
+  opening: string;
+  variation: string;
+  eco: string;
+}
+
+/**
+ * Classifies the chess opening from a sequence of SAN moves.
+ * Requires at least 5 moves. Proxied through the main backend → ML Flask service.
+ */
+export async function apiClassifyOpening(moves: string[]): Promise<OpeningClassification> {
+  const data = await gql<{ classifyOpening: OpeningClassification }>(
+    `query ClassifyOpening($moves: [String!]!) {
+      classifyOpening(moves: $moves) {
+        opening
+        variation
+        eco
+      }
+    }`,
+    { moves },
+  );
+  return data.classifyOpening;
+}
+
 // ─── Player Profile ───────────────────────────────────────────────────────────
 
 export interface PlayerStats {

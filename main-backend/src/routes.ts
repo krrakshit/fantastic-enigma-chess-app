@@ -109,6 +109,8 @@ function issueTokens(res: Response, data: TokenBase) {
 }
 
 const ANALYSIS_BACKEND_URL = process.env.ANALYSIS_BACKEND_URL ?? "http://localhost:7000";
+const ML_BACKEND_URL = process.env.ML_BACKEND_URL ?? "http://localhost:8000";
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Social auth helpers
@@ -293,6 +295,15 @@ const typeDefs = gql`
     bestMove: String
   }
 
+  # ── Opening classification types ───────────────────────────────────────────
+
+  type OpeningClassification {
+    opening: String!
+    variation: String!
+    eco: String!
+  }
+
+
   # ── Auth payloads ───────────────────────────────────────────────────────────
 
   """
@@ -380,6 +391,12 @@ const typeDefs = gql`
     Returns the public profile for a player: stats, rating history, recent games.
     """
     playerProfile(username: String!): PlayerProfile!
+
+    """
+    Classify the chess opening from a list of SAN moves (e.g. ["e4", "e5", "Nf3"]).
+    Proxies to the ML backend at /classify. Requires at least 5 moves.
+    """
+    classifyOpening(moves: [String!]!): OpeningClassification!
   }
 
   # ── Mutations ───────────────────────────────────────────────────────────────
@@ -789,7 +806,51 @@ const resolvers = {
         recentGames,
       };
     },
+
+    // ── classifyOpening ───────────────────────────────────────────────────────
+    classifyOpening: async (_: unknown, { moves }: { moves: string[] }) => {
+
+      log.info("🎯 Classifying opening", { moveCount: moves.length, moves });
+
+      let response: globalThis.Response;
+      try {
+        response = await fetch(`${ML_BACKEND_URL}/classify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ moves }),
+        });
+      } catch (networkErr) {
+        log.error("❌ ML backend unreachable", { error: String(networkErr) });
+        throw new Error("Opening classifier service is unavailable. Please try again later.");
+      }
+
+      if (!response.ok) {
+        const errText = await response.text();
+        log.error("❌ ML backend error", { status: response.status, body: errText });
+        throw new Error(`Opening classifier error (${response.status}): ${errText}`);
+      }
+
+      const data = (await response.json()) as {
+        opening?: string;
+        variation?: string;
+        eco?: string;
+        // allow flexible ML response keys
+        name?: string;
+        Opening?: string;
+        Variation?: string;
+        ECO?: string;
+      };
+
+      log.info("✅ Opening classified", { data });
+
+      return {
+        opening: data.opening ?? data.Opening ?? data.name ?? "Unknown Opening",
+        variation: data.variation ?? data.Variation ?? "",
+        eco: data.eco ?? data.ECO ?? "",
+      };
+    },
   },
+
 
   Mutation: {
     // ── signup ────────────────────────────────────────────────────────────────

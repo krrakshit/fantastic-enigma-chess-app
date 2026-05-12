@@ -11,6 +11,7 @@ import {
 } from "../lib/auth-client";
 import { Chessboard } from "react-chessboard";
 import { Chess } from "chess.js";
+import { getThemeColors, getThemeList, saveTheme, getSavedTheme } from "../lib/board-themes";
 
 export const Route = createFileRoute("/analyse/$roomId")({
   component: AnalysePage,
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/analyse/$roomId")({
 
 const P = "#2D6A4F";
 const ARROW_COLORS = ["rgba(45,106,79,0.8)", "rgba(96,165,250,0.6)", "rgba(245,158,11,0.45)"];
+
 
 const CLASSIFICATION_COLORS: Record<
   string,
@@ -38,7 +40,21 @@ function AnalysePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // Board state
+  // Responsive
+  const [viewportWidth, setViewportWidth] = useState(window.innerWidth);
+  const [viewportHeight, setViewportHeight] = useState(window.innerHeight);
+  const isMobile = viewportWidth < 768;
+  useEffect(() => {
+    const upd = () => { setViewportWidth(window.innerWidth); setViewportHeight(window.innerHeight); };
+    window.addEventListener("resize", upd);
+    return () => window.removeEventListener("resize", upd);
+  }, []);
+
+  // Theme
+  const [currentTheme, setCurrentTheme] = useState(getSavedTheme());
+  const themeColors = getThemeColors(currentTheme);
+  const handleThemeChange = (n: string) => { saveTheme(n); setCurrentTheme(n); };
+
   const [currentMoveIndex, setCurrentMoveIndex] = useState(-1); // -1 = starting position
   const [explorationMoves, setExplorationMoves] = useState<string[]>([]); // alt moves from user
   const [evalResult, setEvalResult] = useState<EvaluationResult | null>(null);
@@ -57,6 +73,18 @@ function AnalysePage() {
       setError("Sign in to view analysis.");
     }
   }, [status, user, roomId]);
+
+  // Precompute SAN notation for all game moves
+  const sanMoves = useMemo(() => {
+    if (!result) return [] as string[];
+    const c = new Chess();
+    return result.analysis.map((m) => {
+      try {
+        const res = c.move({ from: m.move.slice(0,2), to: m.move.slice(2,4), promotion: m.move.length > 4 ? m.move[4] : undefined });
+        return res?.san ?? m.move;
+      } catch { return m.move; }
+    });
+  }, [result]);
 
   // Build chess instance for current position
   const chess = useMemo(() => {
@@ -378,218 +406,212 @@ function AnalysePage() {
     evalPct = Math.max(5, Math.min(95, 50 + (evalScore / 10)));
   }
 
+  // Responsive board size
+  const boardPad = isMobile ? 8 : 0;
+  const maxBoardW = isMobile ? viewportWidth - boardPad : Math.min(500, viewportWidth * 0.45);
+  const maxBoardH = isMobile ? viewportHeight * 0.42 : viewportHeight - 200;
+  const sq = Math.floor(Math.min(maxBoardW, maxBoardH) / 8);
+  const boardPx = sq * 8;
+
+  const whitePlayer = result.player1?.username ?? result.winner ?? "White";
+  const blackPlayer = result.player2?.username ?? result.runnerup ?? "Black";
+
   return (
     <div style={pageStyle}>
       <div style={bgGrid} />
       <div style={bgGlow} />
 
-      <div style={{ position: "relative", zIndex: 1, maxWidth: 1200, width: "100%", animation: "fadeIn .5s ease" }}>
+      {/* Navbar */}
+      <nav style={{ width:"100%", padding: isMobile ? "10px 14px" : "10px 28px", display:"flex", alignItems:"center", justifyContent:"space-between", background:"rgba(250,250,247,.88)", backdropFilter:"blur(16px)", borderBottom:"1px solid rgba(139,115,85,.06)", flexShrink:0, position:"sticky", top:0, zIndex:100 }}>
+        <Link to="/" style={{ textDecoration:"none", display:"flex", alignItems:"center", gap:10 }}>
+          <div style={{ width:30, height:30, borderRadius:7, background:`linear-gradient(135deg,${P},#40916C)`, display:"flex", alignItems:"center", justifyContent:"center", fontSize:".9rem", color:"#fff", fontWeight:800 }}>♛</div>
+          <span style={{ fontWeight:800, color:"#1A1A1A", fontSize: isMobile ? ".92rem" : "1.05rem", letterSpacing:"-.02em" }}>Chess Arena</span>
+        </Link>
+        <div style={{ display:"flex", gap:10, alignItems:"center" }}>
+          <Link to="/history" style={{ padding:"5px 12px", borderRadius:6, border:"1px solid rgba(139,115,85,.1)", color:"#6B7264", textDecoration:"none", fontSize:".78rem", fontWeight:500 }}>← History</Link>
+        </div>
+      </nav>
+
+      <div style={{ position:"relative", zIndex:1, width:"100%", maxWidth:1200, padding: isMobile ? "12px 8px" : "24px 24px", margin:"0 auto", animation:"fadeIn .5s ease" }}>
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:16, flexWrap:"wrap", gap:10 }}>
           <div>
-            <Link to="/history" style={{ color: "#8B9080", textDecoration: "none", fontSize: ".78rem", marginBottom: 8, display: "inline-block" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.color = P; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.color = "#4B5563"; }}
-            >← Back to history</Link>
-            <h1 style={{ fontSize: "1.6rem", fontWeight: 800, color: "#1A1A1A", margin: 0 }}>Game Analysis</h1>
-            <p style={{ color: "#8B9080", fontSize: ".78rem", marginTop: 4 }}>
-              {result.winner ?? "Draw"} vs {result.runnerup ?? "—"} · Room {roomId.slice(0, 8)}
+            <h1 style={{ fontSize: isMobile ? "1.3rem" : "1.6rem", fontWeight:800, color:"#1A1A1A", margin:0 }}>Game Analysis</h1>
+            <p style={{ color:"#8B9080", fontSize:".78rem", marginTop:4 }}>
+              {whitePlayer} vs {blackPlayer} · Room {roomId.slice(0,8)}
             </p>
           </div>
           {result.winner && (
-            <div style={{ padding: "6px 16px", borderRadius: 8, background: "rgba(45,106,79,.08)", border: "1px solid rgba(45,106,79,.2)", color: P, fontSize: ".82rem", fontWeight: 600 }}>
+            <div style={{ padding:"6px 16px", borderRadius:8, background:"rgba(45,106,79,.08)", border:"1px solid rgba(45,106,79,.2)", color:P, fontSize:".82rem", fontWeight:600 }}>
               🏆 {result.winner} won
             </div>
           )}
         </div>
 
-        {/* Main layout: Board + Eval + Move panel */}
-        <div style={{ display: "grid", gridTemplateColumns: "auto 36px 1fr", gap: 0, alignItems: "start" }}>
+        {/* Main layout */}
+        <div style={{ display:"flex", flexDirection: isMobile ? "column" : "row", gap: isMobile ? 12 : 16, alignItems:"flex-start" }}>
 
-          {/* Chess Board */}
-          <div style={{ borderRadius: 12, overflow: "hidden", boxShadow: "0 4px 30px rgba(0,0,0,.4)", width: 440 }}>
-            <Chessboard
-              options={{
-                position: chess.fen(),
-                onPieceDrop: onDrop as any,
-                onPieceClick: onPieceClick as any,
-                onSquareClick: onSquareClick as any,
-                animationDurationInMs: 150,
-                boardStyle: { borderRadius: "12px" },
-                darkSquareStyle: { backgroundColor: "#1a3a2a" },
-                lightSquareStyle: { backgroundColor: "#2d5a3e" },
-                dropSquareStyle: { boxShadow: "inset 0 0 1px 4px rgba(45,106,79,.5)" },
-                squareStyles: highlightSquares as any,
-                arrows: boardArrows,
-                allowDragging: true,
-                dragActivationDistance: 8,
-                allowDrawingArrows: false,
-              }}
-            />
-          </div>
+          {/* Board column */}
+          <div style={{ display:"flex", flexDirection: isMobile ? "row" : "column", gap: isMobile ? 8 : 0, alignItems: isMobile ? "flex-start" : "center", flexShrink:0 }}>
 
-          {/* Eval Bar */}
-          <div style={{
-            width: 28, height: 440, borderRadius: 6, overflow: "hidden",
-            background: "#1F2937", marginLeft: 8, position: "relative",
-            border: "1px solid rgba(0,0,0,.08)",
-          }}>
-            {/* White portion (bottom) */}
-            <div style={{
-              position: "absolute", bottom: 0, left: 0, right: 0,
-              height: `${evalPct}%`,
-              background: "linear-gradient(to top, #f0f0f0, #d1d5db)",
-              transition: "height 0.4s ease",
-            }} />
-            {/* Score label */}
-            <div style={{
-              position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
-              fontSize: ".58rem", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
-              color: evalPct > 50 ? "#111" : "#ddd", zIndex: 2,
-              textShadow: evalPct > 50 ? "0 0 4px rgba(255,255,255,.3)" : "0 0 4px rgba(0,0,0,.3)",
-              writingMode: "vertical-lr", textOrientation: "mixed",
-            }}>
-              {evalMate !== null ? `M${evalMate}` : `${evalScore > 0 ? "+" : ""}${(evalScore / 100).toFixed(1)}`}
+            {/* Eval Bar + Board side by side on mobile */}
+            <div style={{ display:"flex", gap:8, alignItems:"flex-start" }}>
+              {/* Eval Bar */}
+              <div style={{ width:20, height:boardPx, borderRadius:6, overflow:"hidden", background:"#E5E7EB", position:"relative", border:"1px solid rgba(0,0,0,.08)", flexShrink:0 }}>
+                <div style={{ position:"absolute", bottom:0, left:0, right:0, height:`${evalPct}%`, background:"linear-gradient(to top,#f0f0f0,#d1d5db)", transition:"height 0.4s ease" }} />
+                <div style={{ position:"absolute", top:"50%", left:"50%", transform:"translate(-50%,-50%)", fontSize:".48rem", fontWeight:700, fontFamily:"'JetBrains Mono',monospace", color: evalPct > 50 ? "#111" : "#555", writingMode:"vertical-lr" }}>
+                  {evalMate !== null ? `M${evalMate}` : `${evalScore > 0 ? "+" : ""}${(evalScore/100).toFixed(1)}`}
+                </div>
+              </div>
+
+              {/* Board */}
+              <div style={{ borderRadius:10, overflow:"hidden", boxShadow:`0 0 40px ${themeColors.accent}20, 0 8px 32px rgba(0,0,0,.08)`, border:`2px solid ${themeColors.boardBorder}20` }}>
+                <Chessboard
+                  options={{
+                    position: chess.fen(),
+                    onPieceDrop: onDrop as any,
+                    onPieceClick: onPieceClick as any,
+                    onSquareClick: onSquareClick as any,
+                    animationDurationInMs: 150,
+                    boardStyle: { borderRadius:"10px", width: boardPx, height: boardPx },
+                    darkSquareStyle: { backgroundColor: themeColors.darkSquare },
+                    lightSquareStyle: { backgroundColor: themeColors.lightSquare },
+                    dropSquareStyle: { boxShadow:`inset 0 0 1px 4px ${themeColors.accent}80` },
+                    squareStyles: highlightSquares as any,
+                    arrows: boardArrows,
+                    allowDragging: true,
+                    dragActivationDistance: 8,
+                    allowDrawingArrows: false,
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Nav controls */}
+            <div style={{ display:"flex", justifyContent:"center", gap:6, marginTop: isMobile ? 0 : 12, flexDirection: isMobile ? "column" : "row" }}>
+              {[
+                { label:"⏮", action:() => goToMove(-1), disabled: currentMoveIndex <= -1 && !isExploring },
+                { label:"◀", action: goBack, disabled: currentMoveIndex <= -1 && explorationMoves.length === 0 },
+                { label:"▶", action: goForward, disabled: currentMoveIndex >= result.analysis.length - 1 || isExploring },
+                { label:"⏭", action:() => goToMove(result.analysis.length - 1), disabled: currentMoveIndex >= result.analysis.length - 1 },
+              ].map((btn, i) => (
+                <button key={i} onClick={btn.action} disabled={btn.disabled} style={{
+                  width: isMobile ? 36 : 48, height:36, borderRadius:8,
+                  border:`1px solid ${btn.disabled ? "rgba(0,0,0,.08)" : "rgba(45,106,79,.2)"}`,
+                  background: btn.disabled ? "rgba(255,255,255,.65)" : "rgba(45,106,79,.08)",
+                  color: btn.disabled ? "#9CA3AF" : P,
+                  fontSize:".95rem", cursor: btn.disabled ? "default" : "pointer",
+                  transition:"all .15s", display:"flex", alignItems:"center", justifyContent:"center",
+                }}>{btn.label}</button>
+              ))}
+            </div>
+
+            {/* Theme picker */}
+            <div style={{ background:"rgba(255,255,255,.65)", border:"1px solid rgba(0,0,0,.06)", borderRadius:10, padding:"10px 12px", marginTop: isMobile ? 0 : 10 }}>
+              <div style={{ fontSize:".6rem", color:"#8B9080", letterSpacing:".1em", fontWeight:700, marginBottom:6 }}>BOARD THEME</div>
+              <div style={{ display:"flex", gap:4 }}>
+                {getThemeList().map(t => (
+                  <button key={t.name} onClick={() => handleThemeChange(t.name)} title={t.label} style={{
+                    width:24, height:24, borderRadius:5, cursor:"pointer",
+                    background:`linear-gradient(135deg,${t.lightSquare} 50%,${t.darkSquare} 50%)`,
+                    border: currentTheme === t.name ? `2px solid ${t.accent}` : "2px solid transparent",
+                    transition:"all .2s",
+                  }} />
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Right Panel: Move list + Engine Lines */}
-          <div style={{ marginLeft: 8, display: "flex", flexDirection: "column", gap: 10, maxHeight: 440, minWidth: 0 }}>
+          {/* Right Panel */}
+          <div style={{ flex:1, display:"flex", flexDirection:"column", gap:10, minWidth:0, width: isMobile ? "100%" : undefined }}>
 
             {/* Exploration indicator */}
             {isExploring && (
-              <div style={{
-                padding: "8px 14px", borderRadius: 8,
-                background: "rgba(245,158,11,.08)", border: "1px solid rgba(245,158,11,.2)",
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-              }}>
-                <span style={{ fontSize: ".75rem", color: "#F59E0B", fontWeight: 600 }}>
-                  🔍 Exploring alternative ({explorationMoves.length} move{explorationMoves.length > 1 ? "s" : ""})
-                </span>
-                <button onClick={() => setExplorationMoves([])}
-                  style={{ fontSize: ".7rem", background: "rgba(245,158,11,.15)", border: "1px solid rgba(245,158,11,.3)", color: "#F59E0B", padding: "3px 10px", borderRadius: 5, cursor: "pointer", fontWeight: 600 }}
-                >Reset</button>
+              <div style={{ padding:"8px 14px", borderRadius:8, background:"rgba(245,158,11,.08)", border:"1px solid rgba(245,158,11,.2)", display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+                <span style={{ fontSize:".75rem", color:"#F59E0B", fontWeight:600 }}>🔍 Exploring ({explorationMoves.length} move{explorationMoves.length > 1 ? "s" : ""})</span>
+                <button onClick={() => setExplorationMoves([])} style={{ fontSize:".7rem", background:"rgba(245,158,11,.15)", border:"1px solid rgba(245,158,11,.3)", color:"#F59E0B", padding:"3px 10px", borderRadius:5, cursor:"pointer", fontWeight:600 }}>Reset</button>
               </div>
             )}
 
             {/* Engine Lines */}
-            <div style={{ background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)", borderRadius: 10, padding: 12 }}>
-              <div style={{ fontSize: ".62rem", color: "#8B9080", letterSpacing: ".1em", fontWeight: 700, marginBottom: 8 }}>ENGINE LINES {evalLoading && "⏳"}</div>
+            <div style={{ background:"rgba(255,255,255,.65)", border:"1px solid rgba(0,0,0,.06)", borderRadius:10, padding:12 }}>
+              <div style={{ fontSize:".6rem", color:"#8B9080", letterSpacing:".1em", fontWeight:700, marginBottom:8 }}>ENGINE LINES {evalLoading && "⏳"}</div>
               {evalResult?.lines?.map((line, i) => (
-                <div key={i} style={{
-                  display: "flex", gap: 10, alignItems: "center", padding: "5px 0",
-                  borderBottom: i < (evalResult.lines.length - 1) ? "1px solid rgba(0,0,0,.04)" : "none",
-                }}>
-                  <span style={{
-                    fontSize: ".7rem", fontWeight: 700, fontFamily: "'JetBrains Mono', monospace",
-                    color: P, minWidth: 46, textAlign: "right",
-                  }}>
-                    {line.mate !== null ? `M${line.mate}` : line.score !== null ? `${line.score > 0 ? "+" : ""}${(line.score / 100).toFixed(1)}` : "—"}
+                <div key={i} style={{ display:"flex", gap:10, alignItems:"center", padding:"5px 0", borderBottom: i < evalResult.lines.length - 1 ? "1px solid rgba(0,0,0,.04)" : "none" }}>
+                  <span style={{ fontSize:".7rem", fontWeight:700, fontFamily:"'JetBrains Mono',monospace", color:P, minWidth:46, textAlign:"right" }}>
+                    {line.mate !== null ? `M${line.mate}` : line.score !== null ? `${line.score > 0 ? "+" : ""}${(line.score/100).toFixed(1)}` : "—"}
                   </span>
-                  <span style={{ fontSize: ".72rem", color: "#6B7264", fontFamily: "'JetBrains Mono', monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {line.moves.slice(0, 6).join(" ")}
+                  <span style={{ fontSize:".7rem", color:"#6B7264", fontFamily:"'JetBrains Mono',monospace", whiteSpace:"nowrap", overflow:"hidden", textOverflow:"ellipsis" }}>
+                    {line.moves.slice(0,6).join(" ")}
                   </span>
                 </div>
-              )) ?? (
-                <div style={{ fontSize: ".75rem", color: "#9CA392" }}>Loading...</div>
-              )}
+              )) ?? <div style={{ fontSize:".75rem", color:"#9CA392" }}>Loading...</div>}
             </div>
 
-            {/* Move list (scrollable) */}
-            <div style={{ background: "rgba(255,255,255,.65)", border: "1px solid rgba(0,0,0,.06)", borderRadius: 10, flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
-              <div style={{ fontSize: ".62rem", color: "#8B9080", letterSpacing: ".1em", fontWeight: 700, padding: "10px 12px 6px" }}>MOVES</div>
-              <div style={{ overflowY: "auto", padding: "0 6px 6px", flex: 1 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "32px 1fr 1fr", gap: 2 }}>
+            {/* Move list */}
+            <div style={{ background:"rgba(255,255,255,.65)", border:"1px solid rgba(0,0,0,.06)", borderRadius:10, overflow:"hidden", display:"flex", flexDirection:"column", flex:1, minHeight: isMobile ? 200 : 280 }}>
+              <div style={{ padding:"10px 12px 6px", borderBottom:"1px solid rgba(0,0,0,.04)" }}>
+                <div style={{ display:"grid", gridTemplateColumns:"28px 1fr 1fr", gap:2 }}>
+                  <span />
+                  <div style={{ display:"flex", alignItems:"center", gap:5, paddingLeft:6 }}>
+                    <div style={{ width:10, height:10, borderRadius:"50%", background:"linear-gradient(135deg,#fff,#d1d5db)", border:"1.5px solid #ccc" }} />
+                    <span style={{ fontSize:".6rem", color:"#8B9080", fontWeight:700, letterSpacing:".08em" }}>{whitePlayer.slice(0,12).toUpperCase()}</span>
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:5, paddingLeft:6 }}>
+                    <div style={{ width:10, height:10, borderRadius:"50%", background:"linear-gradient(135deg,#4B5563,#111)", border:"1.5px solid #333" }} />
+                    <span style={{ fontSize:".6rem", color:"#8B9080", fontWeight:700, letterSpacing:".08em" }}>{blackPlayer.slice(0,12).toUpperCase()}</span>
+                  </div>
+                </div>
+              </div>
+              <div style={{ overflowY:"auto", padding:"4px 6px 6px", flex:1 }}>
+                <div style={{ display:"grid", gridTemplateColumns:"28px 1fr 1fr", gap:2 }}>
                   {Array.from({ length: Math.ceil(result.analysis.length / 2) }).map((_, moveNum) => {
-                    const whiteIdx = moveNum * 2;
-                    const blackIdx = moveNum * 2 + 1;
-                    const w = result.analysis[whiteIdx];
-                    const b = result.analysis[blackIdx];
-
+                    const wi = moveNum * 2, bi = moveNum * 2 + 1;
+                    const w = result.analysis[wi], b = result.analysis[bi];
                     return (
-                      <div key={moveNum} style={{ display: "contents" }}>
-                        <span style={{ fontSize: ".65rem", color: "#8B9080", fontWeight: 600, padding: "3px 4px", lineHeight: "22px" }}>
-                          {moveNum + 1}.
-                        </span>
-                        {w && (
-                          <MoveButton
-                            move={w}
-                            index={whiteIdx}
-                            isActive={currentMoveIndex === whiteIdx && !isExploring}
-                            onClick={() => goToMove(whiteIdx)}
-                          />
-                        )}
-                        {b && (
-                          <MoveButton
-                            move={b}
-                            index={blackIdx}
-                            isActive={currentMoveIndex === blackIdx && !isExploring}
-                            onClick={() => goToMove(blackIdx)}
-                          />
-                        )}
+                      <div key={moveNum} style={{ display:"contents" }}>
+                        <span style={{ fontSize:".65rem", color:"#8B9080", fontWeight:600, padding:"3px 4px", lineHeight:"22px", textAlign:"right" }}>{moveNum + 1}.</span>
+                        {w && <MoveButton move={w} san={sanMoves[wi]} isActive={currentMoveIndex === wi && !isExploring} onClick={() => goToMove(wi)} />}
+                        {b ? <MoveButton move={b} san={sanMoves[bi]} isActive={currentMoveIndex === bi && !isExploring} onClick={() => goToMove(bi)} /> : <span />}
                       </div>
                     );
                   })}
                 </div>
               </div>
             </div>
-          </div>
-        </div>
 
-        {/* Navigation controls */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 8, marginTop: 16 }}>
-          {[
-            { label: "⏮", action: () => goToMove(-1), disabled: currentMoveIndex <= -1 && !isExploring },
-            { label: "◀", action: goBack, disabled: currentMoveIndex <= -1 && explorationMoves.length === 0 },
-            { label: "▶", action: goForward, disabled: (currentMoveIndex >= result.analysis.length - 1 || isExploring) },
-            { label: "⏭", action: () => goToMove(result.analysis.length - 1), disabled: currentMoveIndex >= result.analysis.length - 1 },
-          ].map((btn, i) => (
-            <button key={i} onClick={btn.action} disabled={btn.disabled}
-              style={{
-                width: 44, height: 36, borderRadius: 8, border: "1px solid rgba(255,255,255,.1)",
-                background: btn.disabled ? "rgba(255,255,255,.65)" : "rgba(45,106,79,.08)",
-                color: btn.disabled ? "#374151" : "#E5E7EB",
-                fontSize: "1rem", cursor: btn.disabled ? "default" : "pointer",
-                transition: "all .15s", display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >{btn.label}</button>
-          ))}
-        </div>
-
-        {/* Accuracy summary */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 20 }}>
-          {[
-            { label: "White", moves: whiteMoves, accuracy: whiteAcc },
-            { label: "Black", moves: blackMoves, accuracy: blackAcc },
-          ].map((side, si) => (
-            <div key={si} style={playerCard}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                <div style={{
-                  width: 24, height: 24, borderRadius: "50%",
-                  background: si === 0 ? "linear-gradient(135deg,#fff,#d1d5db)" : "linear-gradient(135deg,#374151,#111)",
-                  border: "2px solid rgba(255,255,255,.15)",
-                }} />
-                <div style={{ fontSize: ".85rem", fontWeight: 600, color: "#1A1A1A" }}>{side.label}</div>
-                <div style={{ marginLeft: "auto", fontSize: "1.4rem", fontWeight: 800, color: P }}>{side.accuracy}%</div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 5 }}>
-                {(["best", "excellent", "good", "inaccuracy", "mistake", "blunder"] as const).map(cls => {
-                  const c = CLASSIFICATION_COLORS[cls];
-                  const count = side.moves.filter(m => m.classification === cls).length;
-                  return (
-                    <div key={cls} style={{ padding: "5px 6px", borderRadius: 5, textAlign: "center", background: c.bg, border: `1px solid ${c.border}` }}>
-                      <div style={{ fontSize: ".9rem", fontWeight: 700, color: c.text }}>{count}</div>
-                      <div style={{ fontSize: ".5rem", color: c.text, opacity: 0.7, letterSpacing: ".04em" }}>{c.label}</div>
-                    </div>
-                  );
-                })}
-              </div>
+            {/* Accuracy summary */}
+            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:10 }}>
+              {[
+                { label: whitePlayer, colorLabel:"White", moves: whiteMoves, accuracy: whiteAcc, si:0 },
+                { label: blackPlayer, colorLabel:"Black", moves: blackMoves, accuracy: blackAcc, si:1 },
+              ].map((side) => (
+                <div key={side.si} style={playerCard}>
+                  <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:12 }}>
+                    <div style={{ width:18, height:18, borderRadius:"50%", background: side.si === 0 ? "linear-gradient(135deg,#fff,#d1d5db)" : "linear-gradient(135deg,#374151,#111)", border:"2px solid rgba(0,0,0,.1)" }} />
+                    <div style={{ fontSize:".8rem", fontWeight:600, color:"#1A1A1A", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:80 }}>{side.label}</div>
+                    <div style={{ marginLeft:"auto", fontSize:"1.2rem", fontWeight:800, color:P }}>{side.accuracy}%</div>
+                  </div>
+                  <div style={{ display:"grid", gridTemplateColumns:"repeat(3,1fr)", gap:4 }}>
+                    {(["best","excellent","good","inaccuracy","mistake","blunder"] as const).map(cls => {
+                      const c = CLASSIFICATION_COLORS[cls];
+                      const count = side.moves.filter(m => m.classification === cls).length;
+                      return (
+                        <div key={cls} style={{ padding:"4px 5px", borderRadius:5, textAlign:"center", background:c.bg, border:`1px solid ${c.border}` }}>
+                          <div style={{ fontSize:".85rem", fontWeight:700, color:c.text }}>{count}</div>
+                          <div style={{ fontSize:".45rem", color:c.text, opacity:0.7, letterSpacing:".04em" }}>{c.label}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
 
-        <div style={{ marginTop: 32, textAlign: "center" }}>
-          <p style={{ color: "#9CA392", fontSize: ".72rem" }}>Powered by Stockfish · Depth 15 · Use ← → keys to navigate · Drag pieces to explore</p>
+            <div style={{ textAlign:"center", paddingBottom:16 }}>
+              <p style={{ color:"#9CA392", fontSize:".72rem" }}>Powered by Stockfish · Use ← → keys to navigate · Drag pieces to explore</p>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -598,14 +620,15 @@ function AnalysePage() {
 
 // ── Move Button Component ─────────────────────────────────────────────────────
 
+
 function MoveButton({
   move,
-  index: _index,
+  san,
   isActive,
   onClick,
 }: {
   move: MoveAnalysis;
-  index: number;
+  san: string;
   isActive: boolean;
   onClick: () => void;
 }) {
@@ -618,21 +641,19 @@ function MoveButton({
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
-        padding: "3px 6px", borderRadius: 4, border: "none", cursor: "pointer",
-        background: isActive ? c.bg : hovered ? "rgba(0,0,0,.04)" : "transparent",
-        color: isActive ? c.text : "#D1D5DB",
+        padding: "3px 6px", borderRadius: 4, border: isActive ? `1px solid ${c.border}` : "1px solid transparent",
+        cursor: "pointer",
+        background: isActive ? c.bg : hovered ? "rgba(0,0,0,.05)" : "transparent",
+        color: isActive ? c.text : "#374151",
         fontSize: ".74rem", fontWeight: isActive ? 700 : 500,
         fontFamily: "'JetBrains Mono', monospace",
         textAlign: "left", transition: "all .1s",
         display: "flex", alignItems: "center", gap: 4,
       }}
     >
-      {move.move}
+      {san}
       {isActive && (
-        <span style={{
-          width: 6, height: 6, borderRadius: "50%",
-          background: c.text, display: "inline-block", flexShrink: 0,
-        }} />
+        <span style={{ width: 5, height: 5, borderRadius: "50%", background: c.text, display: "inline-block", flexShrink: 0 }} />
       )}
     </button>
   );
@@ -643,7 +664,7 @@ function MoveButton({
 const pageStyle: CSSProperties = {
   minHeight: "100vh", background: "#FAFAF7",
   display: "flex", flexDirection: "column", alignItems: "center",
-  padding: "32px 24px", position: "relative", overflow: "hidden",
+  position: "relative", overflow: "hidden",
 };
 
 const centerPage: CSSProperties = {

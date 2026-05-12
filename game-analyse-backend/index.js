@@ -3,12 +3,30 @@ import { createRequire } from "module";
 import path from "path";
 import express from "express";
 import { createLogger } from "../logger/index.mjs";
-
+import { Chess } from "chess.js"
 const log = createLogger("game-analyse-backend");
 
 const app = express();
 app.use(express.json());
 
+
+function pgnToUciMoves(pgn) {
+  const chess = new Chess();
+  
+  // Load the PGN
+  chess.loadPgn(pgn);
+  
+  // Get full verbose move history
+  const history = chess.history({ verbose: true });
+  
+  // Convert each move to UCI format (from + to + promotion if any)
+  const uciMoves = history.map((move) => {
+    const base = move.from + move.to;
+    return move.promotion ? base + move.promotion : base;
+  });
+  
+  return uciMoves;
+}
 // ── Request logging middleware (fire-and-forget) ────────────────────────────
 app.use((req, res, next) => {
   const start = Date.now();
@@ -18,6 +36,89 @@ app.use((req, res, next) => {
   next();
 });
 
+app.post("/analyse-pgn", async (req, res) => {
+  const { pgn, depth = 15 } = req.body;
+
+  if (!pgn || typeof pgn !== "string") {
+    return res.status(400).json({ error: "pgn string required" });
+  }
+
+  // Parse PGN into UCI moves
+  let uciMoves;
+  try {
+    uciMoves = pgnToUciMoves(pgn.trim());
+  } catch (err) {
+    return res.status(400).json({ 
+      error: "Invalid PGN format", 
+      details: String(err) 
+    });
+  }
+
+  if (uciMoves.length === 0) {
+    return res.status(400).json({ error: "PGN contains no moves" });
+  }
+
+  log.info(`📋 PGN analysis request`, { moveCount: uciMoves.length });
+
+  // Feed into existing analysis pipeline
+  try {
+    const startTime = Date.now();
+    const results = [];
+    let prevScore = 0;
+
+    sendCommand("ucinewgame");
+    sendCommand("isready");
+
+    for (let i = 0; i < uciMoves.length; i++) {
+      const movesUpToHere = uciMoves.slice(0, i + 1);
+      const lines = await analysePosition(movesUpToHere, depth);
+      const { score, mate, bestMove } = parseAnalysis(lines);
+
+      const isWhiteTurn = i % 2 === 0;
+      const classification = classifyMove(prevScore, score ?? 0, isWhiteTurn);
+
+      results.push({
+        moveNumber: Math.floor(i / 2) + 1,
+        move: uciMoves[i],
+        color: isWhiteTurn ? "white" : "black",
+        score,
+        mate,
+        bestMove,
+        classification,
+      });
+
+      prevScore = score ?? prevScore;
+    }
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+    log.info(`✅ PGN Analysis complete`, { 
+      moveCount: uciMoves.length, 
+      elapsedSec: elapsed 
+    });
+
+    // Also extract metadata from PGN headers
+    const chess = new Chess();
+    chess.loadPgn(pgn.trim());
+    const headers = chess.header();
+
+    res.json({ 
+      analysis: results,
+      metadata: {
+        white: headers.White ?? null,
+        black: headers.Black ?? null,
+        result: headers.Result ?? null,
+        date: headers.Date ?? null,
+        event: headers.Event ?? null,
+        opening: headers.Opening ?? null,
+        eco: headers.ECO ?? null,
+        totalMoves: uciMoves.length,
+      }
+    });
+  } catch (err) {
+    log.error("PGN Analysis failed", { error: String(err) });
+    res.status(500).json({ error: "Analysis failed" });
+  }
+});
 
 const require = createRequire(import.meta.url);
 const stockfishPath = path.join(

@@ -344,6 +344,22 @@ const typeDefs = gql`
     github: String!
   }
 
+  type PgnAnalysisresult {
+    analysis : [MoveAnalysis!]!
+    metadata : PgnMetaData!
+  }
+
+  type PgnMetadata {
+    white: String
+    black: String
+    result: String
+    date: String
+    event: String
+    opening: String
+    eco: String
+    totalMoves: Int!
+  }
+
   # ── Queries ─────────────────────────────────────────────────────────────────
 
   type Query {
@@ -397,6 +413,11 @@ const typeDefs = gql`
     Proxies to the ML backend at /classify. Requires at least 5 moves.
     """
     classifyOpening(moves: [String!]!): OpeningClassification!
+
+    """
+    analyses the pgn data
+    """
+    analysePgn(pgn : String! , depth : Int) : PgnAnalysisresult!
   }
 
   # ── Mutations ───────────────────────────────────────────────────────────────
@@ -848,6 +869,23 @@ const resolvers = {
         variation: data.variation ?? data.Variation ?? "",
         eco: data.eco ?? data.ECO ?? "",
       };
+    },
+    analysePgn: async (
+      _: unknown,
+      { pgn, depth = 12 }: { pgn: string; depth?: number },
+    ) => {
+      const response = await fetch(`${ANALYSIS_BACKEND_URL}/analyse-pgn`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pgn, depth }),
+      });
+    
+      if (!response.ok) {
+        const err = await response.text();
+        throw new Error(`PGN analysis service error: ${err}`);
+      }
+    
+      return await response.json();
     },
   },
 
